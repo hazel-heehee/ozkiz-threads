@@ -325,6 +325,19 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
       </div>
     </div>
 
+    <!-- 날짜 필터 바 -->
+    <div style="padding:12px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--text2);font-weight:600">기간 필터</span>
+      <input type="date" id="filterStart" style="border:1px solid var(--border);border-radius:var(--r2);padding:5px 10px;font-size:12px;font-family:inherit;background:var(--surface);color:var(--text);outline:none" onchange="applyFilter()"/>
+      <span style="font-size:12px;color:var(--text3)">~</span>
+      <input type="date" id="filterEnd" style="border:1px solid var(--border);border-radius:var(--r2);padding:5px 10px;font-size:12px;font-family:inherit;background:var(--surface);color:var(--text);outline:none" onchange="applyFilter()"/>
+      <button class="btn btn-ghost btn-sm" onclick="setQuick(7)">7일</button>
+      <button class="btn btn-ghost btn-sm" onclick="setQuick(30)">30일</button>
+      <button class="btn btn-ghost btn-sm" onclick="setQuick(90)">90일</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearFilter()">전체</button>
+      <span style="font-size:11px;color:var(--text3)" id="filterLabel"></span>
+    </div>
+
     <div class="content-area">
       <!-- Stats -->
       <div class="stats-grid">
@@ -735,21 +748,13 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
 let apiKey = localStorage.getItem('oz_key') || '';
 let history = JSON.parse(localStorage.getItem('oz_hist') || '[]');
 let generating = false;
-let uploadedFiles = []; // { name, content }
-let calYear = 2026, calMonth = 3; // 0-indexed month
+let uploadedFiles = [];
+let calYear = 2026, calMonth = 3;
+let sheetData = []; // 전역 시트 데이터
+let filterStart = '', filterEnd = ''; // 날짜 필터
 
-// Calendar posts data
-const posts = {
-  '2026-4-1':  [{text:'스친이들 안녕!', type:'published'}],
-  '2026-4-3':  [{text:'아동복 마케터가...', type:'published'}],
-  '2026-4-8':  [{text:'봄 원피스 추천', type:'published'}],
-  '2026-4-10': [{text:'정사이즈 구매 팁', type:'published'}],
-  '2026-4-15': [{text:'기본티 가격 폴', type:'published'}],
-  '2026-4-17': [{text:'나들이 코디', type:'scheduled'}],
-  '2026-4-19': [{text:'신학기 스쿨룩', type:'scheduled'}],
-  '2026-4-22': [{text:'어린이날 선물 추천', type:'scheduled'}],
-  '2026-4-24': [{text:'여름 수영복 예고', type:'scheduled'}],
-};
+// 하드코딩 posts 제거 — sheetData로 대체
+const posts = {};
 
 // ── GOOGLE SHEETS CONFIG
 const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzdQ_4TbAXbCG4ZuLgXxVepZ-i_gKoSK0hhULOksqw0Zs1fBKt9UsJZIGfvIhCOvH2j/exec?key=ozkiz2026';
@@ -825,99 +830,10 @@ async function loadSheetData() {
       return parseInt(s.replace(/[^0-9]/g,'')) || 0;
     };
 
-    // 날짜 포맷 — "2026년 1월 2일 금요일" → "1/2"
-    const fmtDate = v => {
-      const s = String(v||'');
-      const m = s.match(/(\d+)월\s*(\d+)일/);
-      if (m) return `${m[1]}/${m[2]}`;
-      return s.split('T')[0] || s;
-    };
-
-    // 텍스트 — #REF! 오류 처리
-    const cleanText = v => {
-      const s = String(v||'');
-      if (s.includes('#REF') || s.includes('#ERROR') || s.includes('#N/A')) return '';
-      return s;
-    };
-
-    // ── 최신 팔로워 (팔로워 있는 마지막 행)
-    const latestRow = data[data.length - 1];
-    const latestFollower = toNum(latestRow[COL.follower]);
-    const firstFollower  = toNum(data[0][COL.follower]);
-    const followerDiff   = latestFollower - firstFollower;
-    document.getElementById('dash-follower').textContent = latestFollower.toLocaleString();
-    const fc = document.getElementById('dash-follower-change');
-    fc.textContent = followerDiff >= 0 ? `↑ 기간 내 +${followerDiff.toLocaleString()}명` : `↓ ${Math.abs(followerDiff).toLocaleString()}명`;
-    fc.className = 'stat-change ' + (followerDiff >= 0 ? 'up' : 'down');
-
-    // ── 최근 7일 조회수 (조회수 있는 행 기준 최근 7개)
-    const hasViews = data.filter(r => toNum(r[COL.views]) > 0);
-    const recent7 = hasViews.slice(-7);
-    const totalViews = recent7.reduce((s,r) => s + toNum(r[COL.views]), 0);
-    document.getElementById('dash-views').textContent = fmtNum(totalViews);
-    document.getElementById('dash-views-change').textContent = `최근 ${recent7.length}개 게시물 합산`;
-
-    // ── 평균 좋아요 (좋아요 있는 행만)
-    const hasLikes = data.filter(r => toNum(r[COL.likes]) > 0);
-    const avgLikes = hasLikes.length ? Math.round(hasLikes.reduce((s,r)=>s+toNum(r[COL.likes]),0)/hasLikes.length) : 0;
-    document.getElementById('dash-likes').textContent = avgLikes ? avgLikes.toLocaleString() : '—';
-    document.getElementById('dash-likes-change').textContent = `게시물 ${hasLikes.length}개 기준`;
-
-    // ── 총 게시물 수 (글 있는 행)
-    const hasPosts = data.filter(r => cleanText(r[COL.text]).trim());
-    document.getElementById('dash-posts').textContent = hasPosts.length;
-    document.getElementById('dash-posts-change').textContent = `마지막: ${fmtDate(latestRow[COL.date])}`;
-
-    // ── 팔로워 추이 스파크라인
-    const followerData = data.map(r => toNum(r[COL.follower])).filter(v=>v>0);
-    if (followerData.length >= 2) {
-      const min = Math.min(...followerData), max = Math.max(...followerData);
-      const range = max - min || 1;
-      const pts = followerData.map((v,i) => {
-        const x = (i / (followerData.length-1)) * 300;
-        const y = 55 - ((v - min) / range) * 48;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      });
-      const d1 = 'M' + pts.join(' L');
-      const d2 = d1 + ` L300,60 L0,60Z`;
-      document.getElementById('sparklineSvg').innerHTML = `
-        <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#111" stop-opacity=".12"/>
-          <stop offset="100%" stop-color="#111" stop-opacity="0"/>
-        </linearGradient></defs>
-        <path d="${d2}" fill="url(#sg)"/>
-        <path d="${d1}" fill="none" stroke="#111" stroke-width="1.5"/>`;
-      const rangeEl = document.getElementById('sparklineRange');
-      rangeEl.children[0].textContent = fmtDate(data[0][COL.date]);
-      rangeEl.children[1].textContent = fmtDate(latestRow[COL.date]);
-    }
-
-    // ── TOP 3 조회수
-    const sorted = [...hasViews].sort((a,b) => toNum(b[COL.views]) - toNum(a[COL.views])).slice(0,3);
-    document.getElementById('topPosts').innerHTML = sorted.length ? sorted.map((r,i) => `
-      <div class="post-row">
-        <div class="post-rank">${i+1}</div>
-        <div class="post-info">
-          <div class="post-snippet">${cleanText(r[COL.text]).slice(0,40) || '(내용 없음)'}...</div>
-          <div class="post-meta">${fmtDate(r[COL.date])} · 좋아요 ${toNum(r[COL.likes]).toLocaleString()}</div>
-        </div>
-        <div class="post-views">${fmtNum(toNum(r[COL.views]))}</div>
-      </div>`).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">조회수 데이터가 없습니다</div>';
-
-    // ── 최근 게시물 테이블 (최신 20개)
-    const recent20 = data.slice(-20).reverse();
-    document.getElementById('recentTableBody').innerHTML = recent20.map(r => `
-      <tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:9px 10px;white-space:nowrap;font-size:12px;color:var(--text2)">${fmtDate(r[COL.date])}</td>
-        <td style="padding:9px 10px;white-space:nowrap"><span style="font-size:11px;padding:2px 7px;border-radius:6px;background:var(--surface3);color:var(--text2)">${r[COL.type]||''}</span></td>
-        <td style="padding:9px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${cleanText(r[COL.text]).slice(0,50)}${cleanText(r[COL.text]).length>50?'...':''}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.follower]).toLocaleString()}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;font-weight:600">${fmtNum(toNum(r[COL.views]))}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--red)">${toNum(r[COL.likes]).toLocaleString()}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.comments])}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.reposts])}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.shares])}</td>
-      </tr>`).join('');
+    // 전역 저장 후 렌더
+    sheetData = data;
+    renderDashboard(data);
+    renderCalendar();
 
     document.getElementById('sheetLastUpdate').textContent = '업데이트: ' + new Date().toLocaleTimeString('ko-KR');
     dot.style.background = '#16a34a';
@@ -933,6 +849,139 @@ async function loadSheetData() {
       </td></tr>`;
     console.error(e);
   }
+}
+
+// ── SHARED HELPERS (전역)
+function fmtDate(v) {
+  const s = String(v||'');
+  if (s.includes('T')) { const d = new Date(s); return `${d.getMonth()+1}/${d.getDate()}`; }
+  const m = s.match(/(\d+)월\s*(\d+)일/);
+  if (m) return `${m[1]}/${m[2]}`;
+  return s.split('T')[0] || s;
+}
+function toDateObj(v) {
+  const s = String(v||'');
+  if (s.includes('T')) return new Date(s);
+  const m = s.match(/(\d{4}).*?(\d{1,2})월.*?(\d{1,2})일/);
+  if (m) return new Date(m[1], m[2]-1, m[3]);
+  return null;
+}
+function cleanText(v) {
+  const s = String(v||'');
+  if (!s || s.includes('#REF') || s.includes('#ERROR') || s.includes('#N/A')) return '';
+  if (s.includes('valueType') || s.startsWith('{')) return '';
+  return s;
+}
+function toNum(v) {
+  const s = String(v||'');
+  if (!s || s.includes('#') || s.trim() === '') return 0;
+  return parseInt(s.replace(/[^0-9]/g,'')) || 0;
+}
+
+// ── RENDER DASHBOARD
+function renderDashboard(data) {
+  if (!data || !data.length) return;
+
+  const latestRow = data[data.length - 1];
+  const latestFollower = toNum(latestRow[COL.follower]);
+  const firstFollower  = toNum(data[0][COL.follower]);
+  const followerDiff   = latestFollower - firstFollower;
+  document.getElementById('dash-follower').textContent = latestFollower.toLocaleString();
+  const fc = document.getElementById('dash-follower-change');
+  fc.textContent = followerDiff >= 0 ? `↑ 기간 내 +${followerDiff.toLocaleString()}명` : `↓ ${Math.abs(followerDiff).toLocaleString()}명`;
+  fc.className = 'stat-change ' + (followerDiff >= 0 ? 'up' : 'down');
+
+  const hasViews = data.filter(r => toNum(r[COL.views]) > 0);
+  const recent7  = hasViews.slice(-7);
+  const totalViews = recent7.reduce((s,r) => s + toNum(r[COL.views]), 0);
+  document.getElementById('dash-views').textContent = fmtNum(totalViews);
+  document.getElementById('dash-views-change').textContent = `최근 ${recent7.length}개 게시물 합산`;
+
+  const hasLikes = data.filter(r => toNum(r[COL.likes]) > 0);
+  const avgLikes = hasLikes.length ? Math.round(hasLikes.reduce((s,r)=>s+toNum(r[COL.likes]),0)/hasLikes.length) : 0;
+  document.getElementById('dash-likes').textContent = avgLikes ? avgLikes.toLocaleString() : '—';
+  document.getElementById('dash-likes-change').textContent = `게시물 ${hasLikes.length}개 기준`;
+
+  const hasPosts = data.filter(r => cleanText(r[COL.text]).trim());
+  document.getElementById('dash-posts').textContent = hasPosts.length;
+  document.getElementById('dash-posts-change').textContent = `마지막: ${fmtDate(latestRow[COL.date])}`;
+
+  // 스파크라인
+  const followerData = data.map(r => toNum(r[COL.follower])).filter(v=>v>0);
+  if (followerData.length >= 2) {
+    const min = Math.min(...followerData), max = Math.max(...followerData);
+    const range = max - min || 1;
+    const pts = followerData.map((v,i) => {
+      const x = (i/(followerData.length-1))*300;
+      const y = 55 - ((v-min)/range)*48;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    const d1 = 'M'+pts.join(' L'), d2 = d1+' L300,60 L0,60Z';
+    document.getElementById('sparklineSvg').innerHTML = `
+      <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#111" stop-opacity=".12"/>
+        <stop offset="100%" stop-color="#111" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="${d2}" fill="url(#sg)"/>
+      <path d="${d1}" fill="none" stroke="#111" stroke-width="1.5"/>`;
+    const rng = document.getElementById('sparklineRange');
+    rng.children[0].textContent = fmtDate(data[0][COL.date]);
+    rng.children[1].textContent = fmtDate(latestRow[COL.date]);
+  }
+
+  // TOP 3
+  const sorted = [...hasViews].sort((a,b)=>toNum(b[COL.views])-toNum(a[COL.views])).slice(0,3);
+  document.getElementById('topPosts').innerHTML = sorted.length ? sorted.map((r,i)=>`
+    <div class="post-row">
+      <div class="post-rank">${i+1}</div>
+      <div class="post-info">
+        <div class="post-snippet">${cleanText(r[COL.text]).slice(0,38)||'(내용 없음)'}...</div>
+        <div class="post-meta">${fmtDate(r[COL.date])} · 좋아요 ${toNum(r[COL.likes]).toLocaleString()}</div>
+      </div>
+      <div class="post-views">${fmtNum(toNum(r[COL.views]))}</div>
+    </div>`).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">조회수 데이터가 없습니다</div>';
+
+  // 테이블 (최신 30개)
+  const recent30 = data.slice(-30).reverse();
+  document.getElementById('recentTableBody').innerHTML = recent30.map(r=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:9px 10px;white-space:nowrap;font-size:12px;color:var(--text2)">${fmtDate(r[COL.date])}</td>
+      <td style="padding:9px 10px;white-space:nowrap"><span style="font-size:11px;padding:2px 7px;border-radius:6px;background:var(--surface3);color:var(--text2)">${r[COL.type]||''}</span></td>
+      <td style="padding:9px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${cleanText(r[COL.text]).slice(0,50)}${cleanText(r[COL.text]).length>50?'...':''}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.follower]).toLocaleString()}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:13px;font-weight:600">${fmtNum(toNum(r[COL.views]))}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--red)">${toNum(r[COL.likes]).toLocaleString()}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.comments])}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.reposts])}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.shares])}</td>
+    </tr>`).join('');
+}
+
+// ── DATE FILTER
+function applyFilter() {
+  const s = document.getElementById('filterStart').value;
+  const e = document.getElementById('filterEnd').value;
+  if (!sheetData.length) return;
+  let filtered = sheetData;
+  if (s) filtered = filtered.filter(r => { const d = toDateObj(r[COL.date]); return d && d >= new Date(s); });
+  if (e) filtered = filtered.filter(r => { const d = toDateObj(r[COL.date]); return d && d <= new Date(e+'T23:59:59'); });
+  const lbl = document.getElementById('filterLabel');
+  lbl.textContent = filtered.length ? `${filtered.length}개 행 표시 중` : '해당 기간 데이터 없음';
+  renderDashboard(filtered);
+}
+function setQuick(days) {
+  const end = new Date();
+  const start = new Date(); start.setDate(start.getDate() - days);
+  const fmt = d => d.toISOString().split('T')[0];
+  document.getElementById('filterStart').value = fmt(start);
+  document.getElementById('filterEnd').value = fmt(end);
+  applyFilter();
+}
+function clearFilter() {
+  document.getElementById('filterStart').value = '';
+  document.getElementById('filterEnd').value = '';
+  document.getElementById('filterLabel').textContent = '';
+  if (sheetData.length) renderDashboard(sheetData);
 }
 
 // ── INIT
@@ -963,24 +1012,42 @@ function getChip(g) {
   return el ? el.textContent.trim() : '';
 }
 
-// ── CALENDAR
+// ── CALENDAR (시트 데이터 연동)
 function renderCalendar() {
   const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   document.getElementById('calTitle').textContent = `${calYear}년 ${months[calMonth]}`;
   const grid = document.getElementById('calGrid');
   const dows = ['일','월','화','수','목','금','토'];
-  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  let html = dows.map(d=>`<div class="cal-dow">${d}</div>`).join('');
   const first = new Date(calYear, calMonth, 1).getDay();
-  const total = new Date(calYear, calMonth + 1, 0).getDate();
+  const total = new Date(calYear, calMonth+1, 0).getDate();
   const today = new Date();
+
+  // 시트 데이터에서 현재 월 게시물 매핑
+  const calPosts = {};
+  if (sheetData.length) {
+    sheetData.forEach(r => {
+      const d = toDateObj(r[COL.date]);
+      if (!d) return;
+      if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+        const key = d.getDate();
+        if (!calPosts[key]) calPosts[key] = [];
+        const txt = cleanText(r[COL.text]);
+        calPosts[key].push({ text: txt || r[COL.type] || '게시물', type: txt ? 'published' : 'scheduled' });
+      }
+    });
+  }
+
   for (let i = 0; i < first; i++) html += `<div class="cal-day empty"></div>`;
   for (let d = 1; d <= total; d++) {
-    const key = `${calYear}-${calMonth+1}-${d}`;
     const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
-    const dayPosts = posts[key] || [];
-    const dotHtml = dayPosts.map(p => `<div class="cal-post-dot ${p.type}">${p.text}</div>`).join('');
-    const numHtml = isToday ? `<div class="cal-day-num">${d}</div>` : `<div class="cal-day-num" style="color:var(--text3)">${d}</div>`;
-    html += `<div class="cal-day${isToday?' today':''}" onclick="calDayClick(${d})">${numHtml}${dotHtml}<button class="cal-add-btn" onclick="event.stopPropagation();addPostToDay(${d})">+</button></div>`;
+    const dayPosts = calPosts[d] || [];
+    const dotHtml = dayPosts.slice(0,3).map(p=>`<div class="cal-post-dot ${p.type}">${p.text.slice(0,14)}${p.text.length>14?'...':''}</div>`).join('');
+    const moreHtml = dayPosts.length > 3 ? `<div style="font-size:10px;color:var(--text3);padding:1px 5px">+${dayPosts.length-3}개</div>` : '';
+    const numEl = isToday
+      ? `<div class="cal-day-num">${d}</div>`
+      : `<div class="cal-day-num" style="color:var(--text3)">${d}</div>`;
+    html += `<div class="cal-day${isToday?' today':''}" onclick="calDayClick(${d})">${numEl}${dotHtml}${moreHtml}<button class="cal-add-btn" onclick="event.stopPropagation();addPostToDay(${d})">+</button></div>`;
   }
   grid.innerHTML = html;
 }
@@ -988,17 +1055,21 @@ function renderCalendar() {
 function changeMonth(dir) {
   calMonth += dir;
   if (calMonth > 11) { calMonth = 0; calYear++; }
-  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
   renderCalendar();
 }
 
 function calDayClick(d) {
-  const key = `${calYear}-${calMonth+1}-${d}`;
-  const ps = posts[key];
-  if (ps) showToast(`${calMonth+1}/${d} · ${ps.map(p=>p.text).join(', ')}`);
+  if (!sheetData.length) return;
+  const rows = sheetData.filter(r => {
+    const dt = toDateObj(r[COL.date]);
+    return dt && dt.getFullYear()===calYear && dt.getMonth()===calMonth && dt.getDate()===d;
+  });
+  if (rows.length) {
+    showToast(`${calMonth+1}/${d} · ${rows.length}개 게시물`);
+  }
 }
-
-function addPostToDay(d) { showToast(`${calMonth+1}/${d}에 새 포스팅 추가`); }
+function addPostToDay(d) { showToast(`${calMonth+1}/${d} · 콘텐츠 생성 탭에서 초안을 만들어보세요`); }
 function openAddPost() { showToast('콘텐츠 생성 탭에서 초안을 만들고 날짜를 선택하세요'); }
 
 // ── API KEY
