@@ -754,9 +754,11 @@ const posts = {
 // ── GOOGLE SHEETS CONFIG
 const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzdQ_4TbAXbCG4ZuLgXxVepZ-i_gKoSK0hhULOksqw0Zs1fBKt9UsJZIGfvIhCOvH2j/exec?key=ozkiz2026';
 
-// 컬럼 인덱스 (시트 헤더 기준 0-indexed)
-// 일자(0) 팔로워(1) 분류(2) 레퍼런스링크(3) 레퍼런스글(4) 링크(5) 글(6) 이미지/영상(7) 업로드담당(8) 조회수(9) 좋아요(10) 댓글(11) 리포스트(12) 공유(13) 팔로우(14)
-const COL = { date:0, follower:1, type:2, link:5, text:6, views:9, likes:10, comments:11, reposts:12, shares:13 };
+// 컬럼 인덱스 (0-indexed)
+// A:일자(0) B:팔로워(1) C:분류(2) D:레퍼런스링크(3) E:레퍼런스글(4)
+// F:링크(5) G:글(6) H:이미지/영상(7) I:업로드담당(8) J:빈칸(9)
+// K:조회수(10) L:좋아요(11) M:댓글(12) N:리포스트(13) O:공유(14) P:팔로우(15)
+const COL = { date:0, follower:1, type:2, link:5, text:6, views:10, likes:11, comments:12, reposts:13, shares:14 };
 
 function fmtNum(n) {
   if (isNaN(n) || n === '' || n === 0) return '—';
@@ -777,39 +779,66 @@ async function loadSheetData() {
     const json = await res.json();
     if (json.error) throw new Error('인증 실패');
 
-    // 첫 행은 헤더, 이후가 데이터
+    // 첫 행은 헤더, 이후 데이터
+    // 빈 행 / #REF! 오류 / 팔로워 없는 행 제거
     const rows = json;
-    const data = rows.slice(1).filter(r => r[COL.date] && String(r[COL.date]).trim());
+    const data = rows.slice(1).filter(r => {
+      const dateVal = String(r[COL.date]||'').trim();
+      const follVal = String(r[COL.follower]||'').trim();
+      return dateVal && follVal && follVal !== '' && !follVal.includes('#') && parseInt(follVal.replace(/[^0-9]/g,'')) > 0;
+    });
 
-    if (!data.length) throw new Error('데이터가 없습니다');
+    if (!data.length) throw new Error('유효한 데이터가 없습니다');
 
-    const toNum = v => parseInt(String(v).replace(/[^0-9]/g,'')) || 0;
+    // 숫자 변환 — #REF! 등 오류값은 0으로
+    const toNum = v => {
+      const s = String(v||'');
+      if (!s || s.includes('#') || s.trim() === '') return 0;
+      return parseInt(s.replace(/[^0-9]/g,'')) || 0;
+    };
 
-    // ── 최신 팔로워
+    // 날짜 포맷 — "2026년 1월 2일 금요일" → "1/2"
+    const fmtDate = v => {
+      const s = String(v||'');
+      const m = s.match(/(\d+)월\s*(\d+)일/);
+      if (m) return `${m[1]}/${m[2]}`;
+      return s.split('T')[0] || s;
+    };
+
+    // 텍스트 — #REF! 오류 처리
+    const cleanText = v => {
+      const s = String(v||'');
+      if (s.includes('#REF') || s.includes('#ERROR') || s.includes('#N/A')) return '';
+      return s;
+    };
+
+    // ── 최신 팔로워 (팔로워 있는 마지막 행)
     const latestRow = data[data.length - 1];
     const latestFollower = toNum(latestRow[COL.follower]);
     const firstFollower  = toNum(data[0][COL.follower]);
     const followerDiff   = latestFollower - firstFollower;
-    document.getElementById('dash-follower').textContent = fmtNum(latestFollower);
+    document.getElementById('dash-follower').textContent = latestFollower.toLocaleString();
     const fc = document.getElementById('dash-follower-change');
     fc.textContent = followerDiff >= 0 ? `↑ 기간 내 +${followerDiff.toLocaleString()}명` : `↓ ${Math.abs(followerDiff).toLocaleString()}명`;
     fc.className = 'stat-change ' + (followerDiff >= 0 ? 'up' : 'down');
 
-    // ── 최근 7일 조회수
-    const recent7 = data.slice(-7);
+    // ── 최근 7일 조회수 (조회수 있는 행 기준 최근 7개)
+    const hasViews = data.filter(r => toNum(r[COL.views]) > 0);
+    const recent7 = hasViews.slice(-7);
     const totalViews = recent7.reduce((s,r) => s + toNum(r[COL.views]), 0);
     document.getElementById('dash-views').textContent = fmtNum(totalViews);
     document.getElementById('dash-views-change').textContent = `최근 ${recent7.length}개 게시물 합산`;
 
-    // ── 평균 좋아요
-    const allLikes = data.map(r => toNum(r[COL.likes]));
-    const avgLikes = Math.round(allLikes.reduce((a,b)=>a+b,0) / (allLikes.length||1));
-    document.getElementById('dash-likes').textContent = fmtNum(avgLikes);
-    document.getElementById('dash-likes-change').textContent = `전체 ${data.length}개 기준`;
+    // ── 평균 좋아요 (좋아요 있는 행만)
+    const hasLikes = data.filter(r => toNum(r[COL.likes]) > 0);
+    const avgLikes = hasLikes.length ? Math.round(hasLikes.reduce((s,r)=>s+toNum(r[COL.likes]),0)/hasLikes.length) : 0;
+    document.getElementById('dash-likes').textContent = avgLikes ? avgLikes.toLocaleString() : '—';
+    document.getElementById('dash-likes-change').textContent = `게시물 ${hasLikes.length}개 기준`;
 
-    // ── 총 게시물 수
-    document.getElementById('dash-posts').textContent = data.length;
-    document.getElementById('dash-posts-change').textContent = `마지막: ${latestRow[COL.date]}`;
+    // ── 총 게시물 수 (글 있는 행)
+    const hasPosts = data.filter(r => cleanText(r[COL.text]).trim());
+    document.getElementById('dash-posts').textContent = hasPosts.length;
+    document.getElementById('dash-posts-change').textContent = `마지막: ${fmtDate(latestRow[COL.date])}`;
 
     // ── 팔로워 추이 스파크라인
     const followerData = data.map(r => toNum(r[COL.follower])).filter(v=>v>0);
@@ -831,35 +860,35 @@ async function loadSheetData() {
         <path d="${d2}" fill="url(#sg)"/>
         <path d="${d1}" fill="none" stroke="#111" stroke-width="1.5"/>`;
       const rangeEl = document.getElementById('sparklineRange');
-      rangeEl.children[0].textContent = String(data.find(r=>r[COL.follower])[COL.date]).split('T')[0];
-      rangeEl.children[1].textContent = String(latestRow[COL.date]).split('T')[0];
+      rangeEl.children[0].textContent = fmtDate(data[0][COL.date]);
+      rangeEl.children[1].textContent = fmtDate(latestRow[COL.date]);
     }
 
     // ── TOP 3 조회수
-    const sorted = [...data].sort((a,b) => toNum(b[COL.views]) - toNum(a[COL.views])).slice(0,3);
-    document.getElementById('topPosts').innerHTML = sorted.map((r,i) => `
+    const sorted = [...hasViews].sort((a,b) => toNum(b[COL.views]) - toNum(a[COL.views])).slice(0,3);
+    document.getElementById('topPosts').innerHTML = sorted.length ? sorted.map((r,i) => `
       <div class="post-row">
         <div class="post-rank">${i+1}</div>
         <div class="post-info">
-          <div class="post-snippet">${String(r[COL.text]||'').slice(0,38)}...</div>
-          <div class="post-meta">${r[COL.date]} · 좋아요 ${r[COL.likes]||0}</div>
+          <div class="post-snippet">${cleanText(r[COL.text]).slice(0,40) || '(내용 없음)'}...</div>
+          <div class="post-meta">${fmtDate(r[COL.date])} · 좋아요 ${toNum(r[COL.likes]).toLocaleString()}</div>
         </div>
         <div class="post-views">${fmtNum(toNum(r[COL.views]))}</div>
-      </div>`).join('');
+      </div>`).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">조회수 데이터가 없습니다</div>';
 
     // ── 최근 게시물 테이블 (최신 20개)
     const recent20 = data.slice(-20).reverse();
     document.getElementById('recentTableBody').innerHTML = recent20.map(r => `
       <tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:9px 10px;white-space:nowrap;font-size:12px;color:var(--text2)">${r[COL.date]||''}</td>
+        <td style="padding:9px 10px;white-space:nowrap;font-size:12px;color:var(--text2)">${fmtDate(r[COL.date])}</td>
         <td style="padding:9px 10px;white-space:nowrap"><span style="font-size:11px;padding:2px 7px;border-radius:6px;background:var(--surface3);color:var(--text2)">${r[COL.type]||''}</span></td>
-        <td style="padding:9px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${String(r[COL.text]||'').slice(0,50)}${String(r[COL.text]||'').length>50?'...':''}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.follower])||''}</td>
+        <td style="padding:9px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${cleanText(r[COL.text]).slice(0,50)}${cleanText(r[COL.text]).length>50?'...':''}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.follower]).toLocaleString()}</td>
         <td style="padding:9px 10px;text-align:right;font-size:13px;font-weight:600">${fmtNum(toNum(r[COL.views]))}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--red)">${r[COL.likes]||0}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${r[COL.comments]||0}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${r[COL.reposts]||0}</td>
-        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${r[COL.shares]||0}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--red)">${toNum(r[COL.likes]).toLocaleString()}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.comments])}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.reposts])}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.shares])}</td>
       </tr>`).join('');
 
     document.getElementById('sheetLastUpdate').textContent = '업데이트: ' + new Date().toLocaleTimeString('ko-KR');
