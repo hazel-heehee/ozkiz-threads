@@ -768,7 +768,10 @@ const posts = {};
 const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzdQ_4TbAXbCG4ZuLgXxVepZ-i_gKoSK0hhULOksqw0Zs1fBKt9UsJZIGfvIhCOvH2j/exec?key=ozkiz2026';
 const SHEET_API_FORCE = SHEET_API_URL + '&force=1';
 
-// 컬럼 인덱스 — 헤더명으로 자동 감지
+// 컬럼 인덱스 — 시트 구조 고정
+// A:일자(0) B:팔로워(1) C:분류(2) D:레퍼런스링크(3) E:레퍼런스글(4)
+// F:링크(5) G:글(6) H:이미지(7) I:업로드담당(8) J:댓글추가url(9)
+// K:조회수(10) L:좋아요(11) M:댓글(12) N:리포스트(13) O:공유(14) P:팔로우(15)
 let COL = { date:0, follower:1, type:2, link:5, text:6, views:10, likes:11, comments:12, reposts:13, shares:14 };
 
 function detectColumns(headerRow) {
@@ -781,16 +784,22 @@ function detectColumns(headerRow) {
     return -1;
   };
   COL = {
-    date:     find('일자','날짜','date') !== -1 ? find('일자','날짜','date') : 0,
-    follower: find('팔로워','follower') !== -1 ? find('팔로워','follower') : 1,
-    type:     find('분류','type','카테고리') !== -1 ? find('분류','type','카테고리') : 2,
-    link:     find('링크','link','url') !== -1 ? find('링크','link','url') : 5,
-    text:     find('글','내용','text','content') !== -1 ? find('글','내용','text','content') : 6,
-    views:    find('조회수','view') !== -1 ? find('조회수','view') : 10,
-    likes:    find('좋아요','like') !== -1 ? find('좋아요','like') : 11,
-    comments: find('댓글','comment','reply') !== -1 ? find('댓글','comment','reply') : 12,
-    reposts:  find('리포스트','repost','공유') !== -1 ? find('리포스트','repost','공유') : 13,
-    shares:   find('공유','share') !== -1 ? find('공유','share') : 14,
+    date:     find('일자','날짜') !== -1 ? find('일자','날짜') : 0,
+    follower: find('팔로워') !== -1 ? find('팔로워') : 1,
+    type:     find('분류') !== -1 ? find('분류') : 2,
+    link:     find('링크') !== -1 ? find('링크') : 5,
+    // G열(글)만 사용 — D열(레퍼런스링크), E열(레퍼런스글) 제외
+    text:     (() => {
+      for (let i = 0; i < h.length; i++) {
+        if (h[i] === '글') return i; // 정확히 '글'인 컬럼만
+      }
+      return 6; // 못 찾으면 G열(6) 기본값
+    })(),
+    views:    find('조회수') !== -1 ? find('조회수') : 10,
+    likes:    find('좋아요') !== -1 ? find('좋아요') : 11,
+    comments: find('댓글') !== -1 ? find('댓글') : 12,
+    reposts:  find('리포스트') !== -1 ? find('리포스트') : 13,
+    shares:   find('공유') !== -1 ? find('공유') : 14,
   };
   console.log('감지된 컬럼:', COL);
 }
