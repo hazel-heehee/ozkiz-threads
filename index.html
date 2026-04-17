@@ -1063,63 +1063,6 @@ window.addEventListener('load', () => {
   document.getElementById('updatedDate').textContent = '업데이트 ' + new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric'});
 });
 
-// ── TABLE SORT
-let sortKey = 'date', sortAsc = false;
-
-function sortTable(key) {
-  if (sortKey === key) { sortAsc = !sortAsc; }
-  else { sortKey = key; sortAsc = false; }
-
-  // 모든 헤더 아이콘 초기화
-  ['date','type','follower','views','likes','comments','reposts','shares'].forEach(k => {
-    const el = document.getElementById('sort-' + k);
-    if (el) el.textContent = '';
-  });
-  const icon = document.getElementById('sort-' + key);
-  if (icon) icon.textContent = sortAsc ? ' ↑' : ' ↓';
-
-  if (!sheetData.length) return;
-
-  // 현재 필터된 데이터 기준으로 정렬
-  const s = document.getElementById('filterStart').value;
-  const e = document.getElementById('filterEnd').value;
-  let data = [...sheetData];
-  if (s) data = data.filter(r => { const d = toDateObj(r[COL.date]); return d && d >= new Date(s); });
-  if (e) data = data.filter(r => { const d = toDateObj(r[COL.date]); return d && d <= new Date(e+'T23:59:59'); });
-
-  const colMap = { date:COL.date, type:COL.type, follower:COL.follower, views:COL.views, likes:COL.likes, comments:COL.comments, reposts:COL.reposts, shares:COL.shares };
-  const col = colMap[key];
-
-  data.sort((a, b) => {
-    let av = a[col], bv = b[col];
-    if (key === 'date') {
-      av = toDateObj(av) || new Date(0);
-      bv = toDateObj(bv) || new Date(0);
-      return sortAsc ? av - bv : bv - av;
-    }
-    if (key === 'type') {
-      av = String(av||''); bv = String(bv||'');
-      return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
-    }
-    av = toNum(av); bv = toNum(bv);
-    return sortAsc ? av - bv : bv - av;
-  });
-
-  // 테이블만 재렌더
-  document.getElementById('recentTableBody').innerHTML = data.slice(0, 30).map(r=>`
-    <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:9px 10px;white-space:nowrap;font-size:12px;color:var(--text2)">${fmtDate(r[COL.date])}</td>
-      <td style="padding:9px 10px;white-space:nowrap"><span style="font-size:11px;padding:2px 7px;border-radius:6px;background:var(--surface3);color:var(--text2)">${r[COL.type]||''}</span></td>
-      <td style="padding:9px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${cleanText(r[COL.text]).slice(0,50)}${cleanText(r[COL.text]).length>50?'...':''}</td>
-      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.follower]).toLocaleString()}</td>
-      <td style="padding:9px 10px;text-align:right;font-size:13px;font-weight:600">${fmtNum(toNum(r[COL.views]))}</td>
-      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--red)">${toNum(r[COL.likes]).toLocaleString()}</td>
-      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.comments])}</td>
-      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.reposts])}</td>
-      <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.shares])}</td>
-    </tr>`).join('');
-}
-
 // ── NAV
 function goPage(name, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
