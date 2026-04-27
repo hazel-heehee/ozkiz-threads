@@ -288,10 +288,6 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
   <button class="nav-item" onclick="goPage('content',this)">
     <span class="nav-icon">✦</span> 콘텐츠 생성
   </button>
-  <button class="nav-item" onclick="goPage('reply',this)">
-    <span class="nav-icon">◌</span> 멘션 답글
-    <span class="nav-badge" id="mentionBadge">3</span>
-  </button>
   <button class="nav-item" onclick="goPage('trend',this)">
     <span class="nav-icon">↗</span> 트렌드 분석
   </button>
@@ -440,14 +436,19 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
     </div>
   </div>
 
-  <!-- ③ 콘텐츠 생성 -->
+  <!-- ③ 콘텐츠 생성 (프롬프트 생성기) -->
   <div class="page" id="page-content">
-    <div class="page-top"><div class="page-title">콘텐츠 생성</div></div>
+    <div class="page-top"><div class="page-title">AI 프롬프트 생성기</div></div>
     <div class="content-area">
       <div class="tool-layout">
 
         <!-- LEFT: options -->
         <div>
+          <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:18px;font-size:12px;color:var(--text2);line-height:1.6">
+            💡 옵션을 선택하면 AI에 입력할 프롬프트가 자동으로 만들어져요.<br>
+            <b>복사 → ChatGPT/Claude/Gemini에 붙여넣기</b> 해서 사용하세요!
+          </div>
+
           <!-- 콘텐츠 유형 -->
           <div class="section-label">콘텐츠 유형</div>
           <div class="chip-row">
@@ -502,52 +503,30 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
 
           <!-- 추가 요청 -->
           <div class="section-label">추가 요청 <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">(선택)</span></div>
-          <input class="ai-input" id="contentExtra" placeholder="예: 봄꽃놀이 코디 3종 소개, 어린이날 선물 아이디어..." style="margin-bottom:18px"/>
-
-          <!-- 참고 자료 -->
-          <div class="section-label">참고 자료 <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">(선택 · AI가 참고해서 생성)</span></div>
-          <div class="ref-area">
-            <div class="ref-tabs">
-              <button class="ref-tab active" onclick="switchRef('url',this)">🔗 URL</button>
-              <button class="ref-tab" onclick="switchRef('text',this)">📝 텍스트</button>
-              <button class="ref-tab" onclick="switchRef('file',this)">📎 파일 <span class="ref-count-badge" id="fileCount" style="display:none">0</span></button>
-            </div>
-            <div class="ref-panel active" id="refp-url">
-              <input class="ref-input" id="refUrl" placeholder="https://threads.net/... 또는 참고할 URL을 붙여넣으세요" />
-              <div style="font-size:11px;color:var(--text3);margin-top:6px">스레드 게시물 URL, 블로그, 유치원 공지 페이지 등</div>
-            </div>
-            <div class="ref-panel" id="refp-text">
-              <textarea class="ref-input" id="refText" rows="4" placeholder="참고할 내용을 여기에 붙여넣으세요.&#10;&#10;예: 유치원 3월 연간 스케줄, 스레드 인기 게시물 텍스트, 제품 설명 등"></textarea>
-            </div>
-            <div class="ref-panel" id="refp-file">
-              <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="this.classList.remove('drag-over')">
-                <div class="drop-zone-text">
-                  <strong>클릭하거나 파일을 여기에 드래그</strong><br>
-                  CSV · 엑셀(.xlsx) · TXT · 텍스트 파일<br>
-                  <span style="font-size:11px">유치원 연간 스케줄, 제품 리스트 등</span>
-                </div>
-              </div>
-              <input type="file" id="fileInput" style="display:none" accept=".csv,.xlsx,.xls,.txt,.md" multiple onchange="handleFileSelect(event)" />
-              <div class="ref-file-list" id="fileList"></div>
-            </div>
-          </div>
+          <textarea class="ai-input" id="contentExtra" rows="3" placeholder="예: 봄꽃놀이 코디 3종 소개, 어린이날 선물 아이디어, 참고할 텍스트 붙여넣기..." style="margin-bottom:18px"></textarea>
 
           <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" id="btnContent" onclick="genContent()">✦ AI 생성</button>
+            <button class="btn btn-primary" onclick="buildPrompt()">✦ 프롬프트 생성</button>
             <button class="btn btn-ghost btn-sm" onclick="clearGen('content')">초기화</button>
           </div>
         </div>
 
         <!-- RIGHT: result -->
         <div style="position:sticky;top:24px">
-          <div class="section-label">생성 결과</div>
-          <div class="result-box" id="rb-content" style="min-height:320px">
-            <span style="color:var(--text3)">왼쪽에서 조건을 선택하고 AI 생성을 누르세요.</span>
+          <div class="section-label">생성된 프롬프트</div>
+          <div class="result-box" id="rb-content" style="min-height:320px;font-family:'Courier New',monospace;font-size:12px;white-space:pre-wrap;line-height:1.6">
+            <span style="color:var(--text3);font-family:inherit">왼쪽에서 옵션을 선택하고 프롬프트 생성을 누르세요.</span>
           </div>
-          <div class="result-actions" id="ra-content" style="display:none">
-            <button class="btn btn-ghost btn-sm" onclick="copyRes('content')">복사</button>
-            <button class="btn btn-ghost btn-sm" onclick="saveHist('content')">저장</button>
-            <button class="btn btn-ghost btn-sm" onclick="genContent()">재생성</button>
+
+          <!-- 액션 버튼 -->
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap" id="ra-content">
+            <button class="btn btn-primary btn-sm" onclick="copyPromptAndOpen('chatgpt')">📋 복사 + ChatGPT 열기</button>
+            <button class="btn btn-primary btn-sm" onclick="copyPromptAndOpen('claude')">📋 복사 + Claude 열기</button>
+            <button class="btn btn-primary btn-sm" onclick="copyPromptAndOpen('gemini')">📋 복사 + Gemini 열기</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-ghost btn-sm" onclick="copyRes('content')">📋 복사만</button>
+            <button class="btn btn-ghost btn-sm" onclick="saveHist('content')">저장 기록에 저장</button>
           </div>
         </div>
 
@@ -555,109 +534,68 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
     </div>
   </div>
 
-  <!-- ④ 멘션 답글 -->
-  <div class="page" id="page-reply">
-    <div class="page-top"><div class="page-title">멘션 답글</div></div>
-
-    <!-- 받은 멘션 목록 -->
-    <div class="mention-list">
-      <div class="mention-item" onclick="fillMention(this)">
-        <div class="mention-top">
-          <span class="mention-user">@lovebange0122</span>
-          <span class="mention-badge badge-neu">중립</span>
-          <span class="mention-time">6시간 전</span>
-        </div>
-        <div class="mention-text"><mark>오즈키즈</mark> 머리은 올애들 딱이이네?☆</div>
-        <div class="ai-reply-label">AI 답글 초안</div>
-        <div class="ai-reply-box">감사해요 😊 머리핀이랑 세트로 입히면 진짜 찰떡이에요! 혹시 어떤 스타일 찾고 계세요?</div>
-        <div class="mention-btns">
-          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();showToast('✓ 답글이 복사되었습니다')">복사 후 발행</button>
-          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();fillMentionById('lovebange0122','머리은 올애들 딱이이네?☆')">AI 재작성</button>
-        </div>
-      </div>
-      <div class="mention-item">
-        <div class="mention-top">
-          <span class="mention-user">@bbang0123</span>
-          <span class="mention-badge badge-neg">부정</span>
-          <span class="mention-time">6시간 전</span>
-        </div>
-        <div class="mention-text">나 이해가 안되는데.. 왜 우리나라는 불량을 확인해서 팔려고 하는걸까.... ㅠㅠ <mark>오즈키즈</mark> 남땡도 빼드리면 가져실래요? 하는거 별로아.. ㅠㅠ</div>
-        <div class="ai-reply-label">AI 답글 초안</div>
-        <div class="ai-reply-box">불편을 드려 정말 죄송해요. 해당 제품 자세히 확인해보고 싶어요. DM으로 주문번호 보내주시면 바로 처리해드리겠습니다 🙏</div>
-        <div class="mention-btns">
-          <button class="btn btn-primary btn-sm" onclick="showToast('✓ 답글이 복사되었습니다')">복사 후 발행</button>
-          <button class="btn btn-ghost btn-sm">AI 재작성</button>
-        </div>
-      </div>
-      <div class="mention-item">
-        <div class="mention-top">
-          <span class="mention-user">@hohyhe</span>
-          <span class="mention-badge badge-pos">긍정</span>
-          <span class="mention-time">23시간 전</span>
-        </div>
-        <div class="mention-text">이거 수영복인데 평상복으로 스타킹만 신겨서 입히고 싶다 ㅠ 안되면 모자라도... 남편이 통풍 안된다고 해서.. 류</div>
-        <div class="ai-reply-label">AI 답글 초안</div>
-        <div class="ai-reply-box">ㅋㅋㅋ 남편 설득 포인트: "아이가 너무 예쁘다"! 실제로 통기성 좋은 소재라 걱정 없어요 😄 수영복+스타킹 조합 진짜 귀여울 것 같아요!</div>
-        <div class="mention-btns">
-          <button class="btn btn-primary btn-sm" onclick="showToast('✓ 답글이 복사되었습니다')">복사 후 발행</button>
-          <button class="btn btn-ghost btn-sm">AI 재작성</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 직접 입력 -->
-    <div style="padding:20px;border-top:1px solid var(--border)">
-      <div class="section-label">새 댓글 직접 입력</div>
-      <div class="chip-row" style="margin-bottom:12px">
-        <button class="chip on" data-g="rtype" onclick="pickChip(this)">감사 후기</button>
-        <button class="chip" data-g="rtype" onclick="pickChip(this)">불만 · 불편</button>
-        <button class="chip" data-g="rtype" onclick="pickChip(this)">제품 문의</button>
-        <button class="chip" data-g="rtype" onclick="pickChip(this)">배송 문의</button>
-        <button class="chip" data-g="rtype" onclick="pickChip(this)">기타</button>
-      </div>
-      <textarea class="ai-input" id="mentionText" rows="3" placeholder="받은 댓글이나 멘션을 여기에 붙여넣으세요..."></textarea>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn btn-primary" id="btnReply" onclick="genReply()">AI 답글 생성</button>
-      </div>
-      <div class="result-box" id="rb-reply" style="margin-top:12px;display:none"></div>
-      <div class="result-actions" id="ra-reply" style="display:none;margin-top:8px">
-        <button class="btn btn-ghost btn-sm" onclick="copyRes('reply')">복사</button>
-        <button class="btn btn-ghost btn-sm" onclick="saveHist('reply')">저장</button>
-        <button class="btn btn-ghost btn-sm" onclick="genReply()">재생성</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ⑤ 트렌드 분석 -->
+  <!-- ⑤ 트렌드 분석 (레퍼런스 누적) -->
   <div class="page" id="page-trend">
-    <div class="page-top"><div class="page-title">트렌드 분석</div></div>
-    <div class="content-area">
-      <div class="tool-layout">
-        <div>
-          <div class="section-label">분석 유형</div>
-          <div class="chip-row">
-            <button class="chip on" data-g="ttype" onclick="pickChip(this)">키워드 분석</button>
-            <button class="chip" data-g="ttype" onclick="pickChip(this)">콘텐츠 전략</button>
-            <button class="chip" data-g="ttype" onclick="pickChip(this)">월간 기획</button>
-            <button class="chip" data-g="ttype" onclick="pickChip(this)">인플루언서</button>
-          </div>
-          <div class="section-label" style="margin-top:4px">트렌드 키워드 또는 질문</div>
-          <textarea class="ai-input" id="trendText" rows="4" placeholder="예: 요즘 #봄나들이코디 #어린이날선물 이 많이 보여요. 어떤 콘텐츠를 만들면 좋을까요?&#10;&#10;또는: 5월 한 달 콘텐츠 기획 도와줘"></textarea>
-          <div style="display:flex;gap:8px;margin-top:12px">
-            <button class="btn btn-primary" id="btnTrend" onclick="genTrend()">↗ 전략 분석</button>
-            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('trendText').value=''">지우기</button>
-          </div>
+    <div class="page-top">
+      <div class="page-title">스레드 레퍼런스</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="exportRefCSV()">📥 CSV 다운로드</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearAllRefs()" style="color:var(--red)">전체 삭제</button>
+      </div>
+    </div>
+
+    <div style="padding:20px 28px">
+      <!-- 입력 폼 -->
+      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:20px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px">새 레퍼런스 추가</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          <input type="date" id="refDate" class="ai-input" style="margin:0" />
+          <input type="number" id="refViews" class="ai-input" placeholder="조회수" style="margin:0" />
+          <input type="number" id="refLikes" class="ai-input" placeholder="좋아요" style="margin:0" />
+          <input type="number" id="refComments" class="ai-input" placeholder="댓글" style="margin:0" />
         </div>
-        <div>
-          <div class="section-label">분석 결과</div>
-          <div class="result-box" id="rb-trend" style="min-height:260px">
-            <span style="color:var(--text3)">키워드나 질문을 입력하고 분석을 시작하세요.</span>
-          </div>
-          <div class="result-actions" id="ra-trend" style="display:none">
-            <button class="btn btn-ghost btn-sm" onclick="copyRes('trend')">복사</button>
-            <button class="btn btn-ghost btn-sm" onclick="saveHist('trend')">저장</button>
-          </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <input type="number" id="refReposts" class="ai-input" placeholder="리포스트" style="margin:0" />
+          <input type="text" id="refKeyword" class="ai-input" placeholder="키워드 (예: 등원룩, 봄코디)" style="margin:0" />
         </div>
+        <input type="url" id="refLink" class="ai-input" placeholder="https://www.threads.com/..." style="margin-bottom:8px" />
+        <textarea id="refContent" class="ai-input" rows="3" placeholder="글 내용 전체 또는 첫 문장..." style="margin-bottom:10px"></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="addReference()">+ 추가</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearRefForm()">입력 지우기</button>
+        </div>
+      </div>
+
+      <!-- 누적 통계 -->
+      <div style="display:flex;gap:16px;margin-bottom:16px;font-size:12px;color:var(--text2)">
+        <span>총 <b id="refCount" style="color:var(--text)">0</b>개</span>
+        <span>·</span>
+        <span>총 조회수 <b id="refTotalViews" style="color:var(--text)">0</b></span>
+        <span>·</span>
+        <span>평균 좋아요 <b id="refAvgLikes" style="color:var(--text)">0</b></span>
+      </div>
+
+      <!-- 누적 표 -->
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:#fff">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
+          <thead style="background:#f8fafc">
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">기록일자</th>
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">글</th>
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">첫 문장</th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">조회수</th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">좋아요</th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">댓글</th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">리포스트</th>
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">키워드</th>
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">URL</th>
+              <th style="padding:10px;text-align:center;font-weight:600;color:var(--text2);width:60px">삭제</th>
+            </tr>
+          </thead>
+          <tbody id="refTableBody">
+            <tr><td colspan="10" style="padding:40px;text-align:center;color:var(--text3)">아직 저장된 레퍼런스가 없어요. 위에서 추가해보세요!</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -679,7 +617,7 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
           <span class="day-tag">화 – 목</span>
           <span class="routine-title">멘션 · 댓글 모니터링 및 답글</span>
         </div>
-        <div class="routine-desc">스레드 알림 확인 → 댓글 복사<br>← 멘션 답글 탭에 붙여넣기 → AI 답글 생성 → 복사 후 발행</div>
+        <div class="routine-desc">스레드 알림 확인 → 댓글 직접 답글 작성<br>(중요 댓글은 트렌드 분석 탭에 레퍼런스로 저장)</div>
         <div class="routine-time-badge">⏱ 하루 10분</div>
       </div>
       <div class="routine-day">
@@ -1140,6 +1078,7 @@ window.addEventListener('load', () => {
   if (apiKey) setConnected(true);
   renderCalendar();
   renderHistory();
+  renderRefTable();
   loadSheetData();
   document.getElementById('updatedDate').textContent = '업데이트 ' + new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric'});
 });
@@ -1365,28 +1304,18 @@ function renderFileList() {
 }
 
 // ── GENERATORS
-function genContent() {
+// ── 프롬프트 생성기
+function buildPrompt() {
   const type = getChip('type');
   const cta  = getChip('cta');
   const months = [...document.querySelectorAll('[data-g="month"].on')].map(el=>el.textContent.trim()).join(', ') || '미지정';
   const themes = [...document.querySelectorAll('[data-g="theme"].on')].map(el=>el.textContent.trim()).join(', ') || '없음';
   const extra  = document.getElementById('contentExtra').value.trim();
 
-  // reference material
-  const refUrl  = document.getElementById('refUrl').value.trim();
-  const refText = document.getElementById('refText').value.trim();
-  const refFiles = uploadedFiles.map(f => `[파일: ${f.name}]\n${f.content}`).join('\n\n');
-  const refBlock = [
-    refUrl  ? `참고 URL: ${refUrl}` : '',
-    refText ? `참고 텍스트:\n${refText}` : '',
-    refFiles ? `참고 파일 내용:\n${refFiles}` : ''
-  ].filter(Boolean).join('\n\n');
-
-  // CTA instruction
   const ctaMap = {
-    '🔖 정보성 (저장)': '유용한 정보를 담아 저장·스크랩을 유도하는 포스팅으로 작성. 마지막에 "저장해두면 유용해요" 류의 문구 포함.',
-    '💬 토론 (댓글)': '공감 또는 질문을 통해 댓글 참여를 유도하는 포스팅으로 작성. 마지막에 댓글 유도 질문 필수.',
-    '↗ 공유 (공유)': '공유하고 싶어지는 공감 포인트나 정보를 담아 공유를 유도하는 포스팅으로 작성. "주변 엄마들께 공유해주세요" 류의 문구 포함.'
+    '🔖 정보성 (저장)': '유용한 정보를 담아 저장·스크랩을 유도. 마지막에 "저장해두면 유용해요" 류 문구 포함.',
+    '💬 토론 (댓글)': '공감 또는 질문으로 댓글 참여 유도. 마지막에 댓글 유도 질문 필수.',
+    '↗ 공유 (공유)': '공유하고 싶어지는 공감 포인트나 정보 포함. "주변 엄마들께 공유해주세요" 류 문구 포함.'
   };
   const ctaInstruction = ctaMap[cta] || '공감 또는 질문형 CTA 포함.';
 
@@ -1401,54 +1330,147 @@ function genContent() {
 - CTA 목표: ${cta} → ${ctaInstruction}
 - 발행 월: ${months}
 - 시즌/테마: ${themes}
-${extra ? `- 추가 요청: ${extra}` : ''}
-${refBlock ? `\n【참고 자료 — 아래 내용을 반영해 작성】\n${refBlock}` : ''}
+${extra ? `- 추가 요청 / 참고 자료:\n${extra}` : ''}
 
 【작성 규칙】
 1. 3~6줄 (스레드 특성상 짧고 임팩트 있게)
 2. 이모지 2~3개
 3. 마지막에 해시태그 #오즈키즈 포함 3~5개
 4. CTA 목표에 맞는 마무리 문구 반드시 포함
-5. 실제 스레드에 바로 올릴 수 있는 완성된 포스팅만 작성 (설명·부연 없이)`;
+5. 실제 스레드에 바로 올릴 수 있는 완성된 포스팅만 작성 (설명·부연 없이)
 
-  callClaude(p, 'rb-content', 'ra-content', 'btnContent', '✦ AI 생성');
+위 조건으로 스레드 포스팅 3개를 작성해주세요.`;
+
+  const rb = document.getElementById('rb-content');
+  rb.textContent = p;
+  rb.dataset.raw = p;
+  document.getElementById('ra-content').style.display = 'flex';
+  showToast('✓ 프롬프트가 생성되었어요');
 }
 
-function genReply() {
-  const text = document.getElementById('mentionText').value.trim();
-  if (!text) { showToast('댓글 내용을 입력해주세요'); return; }
-  const rtype = getChip('rtype');
-  const p = `오즈키즈(OzKids) 아동복 브랜드 스레드 매니저로서 아래 댓글에 답글을 작성해주세요.
+// 복사 + AI 사이트 새 탭으로 열기
+async function copyPromptAndOpen(target) {
+  const rb = document.getElementById('rb-content');
+  const text = rb.dataset.raw || rb.textContent;
+  if (!text || text.includes('왼쪽에서')) { showToast('먼저 프롬프트를 생성해주세요'); return; }
 
-브랜드 보이스: 따뜻하고 진심 어린 말투. 불만엔 진심 사과. 문의엔 친절하고 명확하게. 이모지 1~2개만.
-
-댓글 유형: ${rtype}
-받은 댓글: "${text}"
-
-답글 텍스트만 2~4줄로 작성. 설명 없이.`;
-  document.getElementById('rb-reply').style.display = 'block';
-  callClaude(p, 'rb-reply', 'ra-reply', 'btnReply', 'AI 답글 생성');
+  try {
+    await navigator.clipboard.writeText(text);
+    const urls = {
+      chatgpt: 'https://chatgpt.com/',
+      claude:  'https://claude.ai/',
+      gemini:  'https://gemini.google.com/'
+    };
+    const names = { chatgpt:'ChatGPT', claude:'Claude', gemini:'Gemini' };
+    showToast(`📋 복사 완료! ${names[target]} 탭이 열려요`);
+    window.open(urls[target], '_blank');
+  } catch(e) {
+    showToast('복사 실패: ' + e.message);
+  }
 }
 
-function genTrend() {
-  const text = document.getElementById('trendText').value.trim();
-  if (!text) { showToast('트렌드 키워드나 질문을 입력해주세요'); return; }
-  const ttype = getChip('ttype');
-  const p = `오즈키즈(OzKids) 아동복 브랜드의 스레드 운영 전략가로서 분석해주세요.
+// ── 레퍼런스 관리
+let references = JSON.parse(localStorage.getItem('oz_refs') || '[]');
 
-브랜드: 오즈키즈 | 0~초등 아동복 | 주 채널: Threads | 타겟: 2030 부모
-분석 유형: ${ttype}
-입력: "${text}"
+function addReference() {
+  const date = document.getElementById('refDate').value || new Date().toISOString().split('T')[0];
+  const content = document.getElementById('refContent').value.trim();
+  const link = document.getElementById('refLink').value.trim();
 
-다음을 포함해 실용적으로 작성:
-1. 핵심 인사이트 2~3가지
-2. 추천 콘텐츠 방향 (구체적으로)
-3. 추천 해시태그 3~5개
-4. 발행 타이밍 조언
+  if (!content && !link) { showToast('글 내용 또는 URL은 필수예요'); return; }
 
-마케터가 바로 실행할 수 있도록 간결하게.`;
-  callClaude(p, 'rb-trend', 'ra-trend', 'btnTrend', '↗ 전략 분석');
+  const firstSentence = content.split(/[\n.!?]/)[0].trim().slice(0, 60);
+
+  const ref = {
+    id: Date.now(),
+    date,
+    content,
+    firstSentence: firstSentence + (content.length > 60 ? '...' : ''),
+    views:    parseInt(document.getElementById('refViews').value) || 0,
+    likes:    parseInt(document.getElementById('refLikes').value) || 0,
+    comments: parseInt(document.getElementById('refComments').value) || 0,
+    reposts:  parseInt(document.getElementById('refReposts').value) || 0,
+    keyword:  document.getElementById('refKeyword').value.trim(),
+    link
+  };
+
+  references.unshift(ref);
+  localStorage.setItem('oz_refs', JSON.stringify(references));
+  renderRefTable();
+  clearRefForm();
+  showToast('✓ 레퍼런스가 추가되었어요');
 }
+
+function clearRefForm() {
+  ['refDate','refContent','refLink','refViews','refLikes','refComments','refReposts','refKeyword'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+function deleteRef(id) {
+  if (!confirm('이 레퍼런스를 삭제할까요?')) return;
+  references = references.filter(r => r.id !== id);
+  localStorage.setItem('oz_refs', JSON.stringify(references));
+  renderRefTable();
+}
+
+function clearAllRefs() {
+  if (!confirm('모든 레퍼런스를 삭제할까요? 되돌릴 수 없어요!')) return;
+  references = [];
+  localStorage.setItem('oz_refs', JSON.stringify(references));
+  renderRefTable();
+}
+
+function renderRefTable() {
+  const body = document.getElementById('refTableBody');
+  if (!body) return;
+
+  document.getElementById('refCount').textContent = references.length;
+  document.getElementById('refTotalViews').textContent = references.reduce((s,r)=>s+(r.views||0),0).toLocaleString();
+  document.getElementById('refAvgLikes').textContent = references.length ? Math.round(references.reduce((s,r)=>s+(r.likes||0),0)/references.length).toLocaleString() : 0;
+
+  if (!references.length) {
+    body.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--text3)">아직 저장된 레퍼런스가 없어요. 위에서 추가해보세요!</td></tr>';
+    return;
+  }
+
+  body.innerHTML = references.map(r => `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:10px;white-space:nowrap;color:var(--text2)">${r.date}</td>
+      <td style="padding:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.content||'').replace(/"/g,'&quot;')}">${(r.content||'').slice(0,40)}${(r.content||'').length>40?'...':''}</td>
+      <td style="padding:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.firstSentence||'').replace(/"/g,'&quot;')}">${r.firstSentence||''}</td>
+      <td style="padding:10px;text-align:right;font-weight:600">${(r.views||0).toLocaleString()}</td>
+      <td style="padding:10px;text-align:right;color:var(--red)">${(r.likes||0).toLocaleString()}</td>
+      <td style="padding:10px;text-align:right;color:var(--text2)">${(r.comments||0).toLocaleString()}</td>
+      <td style="padding:10px;text-align:right;color:var(--text2)">${(r.reposts||0).toLocaleString()}</td>
+      <td style="padding:10px"><span style="background:var(--surface3);padding:2px 7px;border-radius:6px;font-size:11px">${r.keyword||'-'}</span></td>
+      <td style="padding:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.link?`<a href="${r.link}" target="_blank" style="color:#3b82f6">${r.link.slice(0,30)}...</a>`:'-'}</td>
+      <td style="padding:10px;text-align:center"><button onclick="deleteRef(${r.id})" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px">×</button></td>
+    </tr>
+  `).join('');
+}
+
+function exportRefCSV() {
+  if (!references.length) { showToast('내보낼 레퍼런스가 없어요'); return; }
+
+  const headers = ['기록일자','글','첫 문장','조회수','좋아요','댓글','리포스트','키워드','URL'];
+  const escape = v => `"${String(v||'').replace(/"/g,'""').replace(/\n/g,' ')}"`;
+
+  const rows = references.map(r => [
+    r.date, r.content, r.firstSentence, r.views, r.likes, r.comments, r.reposts, r.keyword, r.link
+  ].map(escape).join(','));
+
+  const csv = '\uFEFF' + [headers.map(escape).join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ozkiz-references-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✓ CSV 다운로드 완료');
+}
+
 
 // ── COPY / SAVE
 function copyRes(id) {
