@@ -375,17 +375,11 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
         <!-- 팔로워 추이 차트 -->
         <div class="card">
           <div class="card-title">팔로워 추이</div>
-          <div class="sparkline-wrap">
-            <svg id="sparklineSvg" class="sparkline-svg" viewBox="0 0 300 60" preserveAspectRatio="none">
-              <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#111" stop-opacity=".12"/>
-                <stop offset="100%" stop-color="#111" stop-opacity="0"/>
-              </linearGradient></defs>
-              <text x="150" y="35" text-anchor="middle" fill="#a1a1aa" font-size="11">데이터 불러오는 중...</text>
+          <div style="position:relative;height:200px;margin-top:8px">
+            <svg id="sparklineSvg" width="100%" height="200" viewBox="0 0 500 200" preserveAspectRatio="none" style="overflow:visible">
+              <text x="250" y="100" text-anchor="middle" fill="#a1a1aa" font-size="11">데이터 불러오는 중...</text>
             </svg>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)" id="sparklineRange">
-            <span></span><span></span>
+            <div id="chartTooltip" style="position:absolute;display:none;background:#111;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:10;transform:translate(-50%,-100%)"></div>
           </div>
         </div>
 
@@ -918,27 +912,93 @@ function renderDashboard(data) {
   document.getElementById('dash-posts').textContent = hasPosts.length;
   document.getElementById('dash-posts-change').textContent = `마지막: ${fmtDate(latestRow[COL.date])}`;
 
-  // 스파크라인
-  const followerData = data.map(r => toNum(r[COL.follower])).filter(v=>v>0);
-  if (followerData.length >= 2) {
-    const min = Math.min(...followerData), max = Math.max(...followerData);
+  // 팔로워 추이 차트 (축 + 툴팁)
+  const chartPoints = data.map(r => ({
+    follower: toNum(r[COL.follower]),
+    date: r[COL.date],
+    dateStr: fmtDate(r[COL.date])
+  })).filter(p => p.follower > 0);
+
+  if (chartPoints.length >= 2) {
+    const W = 500, H = 200, PL = 50, PR = 15, PT = 15, PB = 30;
+    const innerW = W - PL - PR, innerH = H - PT - PB;
+    const followers = chartPoints.map(p => p.follower);
+    const min = Math.min(...followers), max = Math.max(...followers);
     const range = max - min || 1;
-    const pts = followerData.map((v,i) => {
-      const x = (i/(followerData.length-1))*300;
-      const y = 55 - ((v-min)/range)*48;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
+
+    // Y축 눈금 5개
+    const ySteps = 4;
+    let yLabels = '', yGrid = '';
+    for (let i = 0; i <= ySteps; i++) {
+      const v = min + (range * i / ySteps);
+      const y = PT + innerH - (innerH * i / ySteps);
+      yLabels += `<text x="${PL-8}" y="${y+4}" text-anchor="end" fill="#9ca3af" font-size="10">${Math.round(v).toLocaleString()}</text>`;
+      yGrid += `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
+    }
+
+    // X축 라벨 (5개 균등 간격)
+    let xLabels = '';
+    const xCount = Math.min(5, chartPoints.length);
+    for (let i = 0; i < xCount; i++) {
+      const idx = Math.round(i * (chartPoints.length - 1) / (xCount - 1));
+      const x = PL + (innerW * idx / (chartPoints.length - 1));
+      xLabels += `<text x="${x}" y="${H-10}" text-anchor="middle" fill="#9ca3af" font-size="10">${chartPoints[idx].dateStr}</text>`;
+    }
+
+    // 데이터 포인트 좌표 계산
+    const pts = chartPoints.map((p, i) => {
+      const x = PL + (innerW * i / (chartPoints.length - 1));
+      const y = PT + innerH - ((p.follower - min) / range) * innerH;
+      return { x, y, ...p };
     });
-    const d1 = 'M'+pts.join(' L'), d2 = d1+' L300,60 L0,60Z';
+
+    const linePath = 'M' + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
+    const areaPath = linePath + ` L${pts[pts.length-1].x},${PT+innerH} L${PL},${PT+innerH}Z`;
+
+    // 호버 영역 + 점
+    const hoverDots = pts.map((p, i) => `
+      <circle cx="${p.x}" cy="${p.y}" r="3" fill="#111" opacity="0" class="chart-dot" data-idx="${i}" />
+      <rect x="${p.x - (innerW/pts.length/2)}" y="${PT}" width="${innerW/pts.length}" height="${innerH}" fill="transparent" class="chart-hover-zone" data-idx="${i}" style="cursor:crosshair"/>
+    `).join('');
+
     document.getElementById('sparklineSvg').innerHTML = `
-      <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#111" stop-opacity=".12"/>
-        <stop offset="100%" stop-color="#111" stop-opacity="0"/>
-      </linearGradient></defs>
-      <path d="${d2}" fill="url(#sg)"/>
-      <path d="${d1}" fill="none" stroke="#111" stroke-width="1.5"/>`;
-    const rng = document.getElementById('sparklineRange');
-    rng.children[0].textContent = fmtDate(data[0][COL.date]);
-    rng.children[1].textContent = fmtDate(latestRow[COL.date]);
+      <defs>
+        <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#111" stop-opacity=".15"/>
+          <stop offset="100%" stop-color="#111" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${yGrid}
+      ${yLabels}
+      ${xLabels}
+      <path d="${areaPath}" fill="url(#sg)"/>
+      <path d="${linePath}" fill="none" stroke="#111" stroke-width="1.5"/>
+      ${hoverDots}
+    `;
+
+    // 툴팁 이벤트 바인딩
+    const tooltip = document.getElementById('chartTooltip');
+    const svgEl = document.getElementById('sparklineSvg');
+    svgEl.querySelectorAll('.chart-hover-zone').forEach(zone => {
+      zone.addEventListener('mouseenter', (e) => {
+        const idx = +zone.dataset.idx;
+        const p = pts[idx];
+        const dot = svgEl.querySelector(`.chart-dot[data-idx="${idx}"]`);
+        dot.setAttribute('opacity', '1');
+        const rect = svgEl.getBoundingClientRect();
+        const xRatio = p.x / W, yRatio = p.y / H;
+        tooltip.style.left = (xRatio * rect.width) + 'px';
+        tooltip.style.top = (yRatio * rect.height - 8) + 'px';
+        tooltip.innerHTML = `<b>${p.dateStr}</b><br>팔로워 ${p.follower.toLocaleString()}명`;
+        tooltip.style.display = 'block';
+      });
+      zone.addEventListener('mouseleave', () => {
+        const idx = +zone.dataset.idx;
+        const dot = svgEl.querySelector(`.chart-dot[data-idx="${idx}"]`);
+        dot.setAttribute('opacity', '0');
+        tooltip.style.display = 'none';
+      });
+    });
   }
 
   // TOP 3
