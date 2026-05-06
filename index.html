@@ -384,9 +384,19 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
           </div>
         </div>
 
-        <!-- 인기 콘텐츠 TOP 3 -->
+        <!-- 인기 콘텐츠 TOP 3 (지표 선택 가능) -->
         <div class="card">
-          <div class="card-title">조회수 TOP 3</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">TOP 3</div>
+            <select id="topMetric" onchange="renderTopPosts()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);font-family:inherit;font-size:12px;cursor:pointer">
+              <option value="views">조회수</option>
+              <option value="likes">좋아요</option>
+              <option value="comments">댓글</option>
+              <option value="reposts">리포스트</option>
+              <option value="shares">공유</option>
+              <option value="follows">팔로우</option>
+            </select>
+          </div>
           <div id="topPosts">
             <div style="font-size:12px;color:var(--text3);padding:12px 0">데이터 불러오는 중...</div>
           </div>
@@ -803,7 +813,8 @@ let history = JSON.parse(localStorage.getItem('oz_hist') || '[]');
 let generating = false;
 let uploadedFiles = [];
 let calYear = 2026, calMonth = 3;
-let sheetData = []; // 전역 시트 데이터
+let sheetData = []; // 전역 시트 데이터 (전체)
+let topPostsData = []; // TOP3 렌더용 (필터된 데이터)
 let filterStart = '', filterEnd = ''; // 날짜 필터
 
 // 하드코딩 posts 제거 — sheetData로 대체
@@ -817,7 +828,7 @@ const SHEET_API_FORCE = SHEET_API_URL + '&force=1';
 // A:일자(0) B:팔로워(1) C:분류(2) D:레퍼런스링크(3) E:레퍼런스글(4)
 // F:링크(5) G:글(6) H:이미지(7) I:업로드담당(8) J:댓글추가url(9)
 // K:조회수(10) L:좋아요(11) M:댓글(12) N:리포스트(13) O:공유(14) P:팔로우(15)
-let COL = { date:0, follower:1, type:2, link:5, text:6, views:10, likes:11, comments:12, reposts:13, shares:14 };
+let COL = { date:0, follower:1, type:2, link:5, text:6, views:10, likes:11, comments:12, reposts:13, shares:14, follows:15 };
 
 function detectColumns(headerRow) {
   // D열(레퍼런스링크), E열(레퍼런스글)은 무조건 무시
@@ -836,6 +847,7 @@ function detectColumns(headerRow) {
     comments: h.indexOf('댓글')   !== -1 ? h.indexOf('댓글')   : 12,
     reposts:  h.indexOf('리포스트') !== -1 ? h.indexOf('리포스트') : 13,
     shares:   h.indexOf('공유')   !== -1 ? h.indexOf('공유')   : 14,
+    follows:  h.indexOf('팔로우') !== -1 ? h.indexOf('팔로우') : 15,
   };
   console.log('감지된 컬럼:', COL);
 }
@@ -843,6 +855,45 @@ function detectColumns(headerRow) {
 function fmtNum(n) {
   if (isNaN(n) || n === '' || n === 0) return '—';
   return Number(n).toLocaleString();
+}
+
+// TOP 3 렌더 (선택된 지표 기준)
+function renderTopPosts() {
+  const metric = (document.getElementById('topMetric') || {}).value || 'views';
+  const labels = {
+    views: '조회수', likes: '좋아요', comments: '댓글',
+    reposts: '리포스트', shares: '공유', follows: '팔로우'
+  };
+  const colKey = COL[metric];
+
+  if (!topPostsData.length || colKey === undefined) {
+    document.getElementById('topPosts').innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">데이터가 없습니다</div>';
+    return;
+  }
+
+  const filtered = topPostsData.filter(r => toNum(r[colKey]) > 0);
+  const sorted = [...filtered].sort((a,b) => toNum(b[colKey]) - toNum(a[colKey])).slice(0,3);
+
+  if (!sorted.length) {
+    document.getElementById('topPosts').innerHTML = `<div style="font-size:12px;color:var(--text3);padding:8px 0">${labels[metric]} 데이터가 없습니다</div>`;
+    return;
+  }
+
+  document.getElementById('topPosts').innerHTML = sorted.map((r,i) => {
+    const link = String(r[COL.link]||'').trim();
+    const snippet = cleanText(r[COL.text]).slice(0,38) || '(내용 없음)';
+    const value = toNum(r[colKey]);
+    const inner = `
+      <div class="post-rank">${i+1}</div>
+      <div class="post-info">
+        <div class="post-snippet">${snippet}...</div>
+        <div class="post-meta">${fmtDate(r[COL.date])} · ${labels[metric]} ${value.toLocaleString()}</div>
+      </div>
+      <div class="post-views">${value.toLocaleString()}</div>`;
+    return link
+      ? `<a href="${link}" target="_blank" class="post-row" style="text-decoration:none;color:inherit;cursor:pointer" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">${inner}</a>`
+      : `<div class="post-row">${inner}</div>`;
+  }).join('');
 }
 
 async function loadSheetData(force = false) {
@@ -959,8 +1010,9 @@ function renderDashboard(data) {
   document.getElementById('dash-posts').textContent = hasPosts.length;
   document.getElementById('dash-posts-change').textContent = `마지막: ${fmtDate(latestRow[COL.date])}`;
 
-  // 팔로워 추이 차트 (축 + 툴팁)
-  const chartPoints = data.map(r => ({
+  // 팔로워 추이 차트 (축 + 툴팁) - 전체 시트 데이터 사용 (기간 필터 영향 받지 않음)
+  const chartSource = sheetData.length ? sheetData : data;
+  const chartPoints = chartSource.map(r => ({
     follower: toNum(r[COL.follower]),
     date: r[COL.date],
     dateObj: toDateObj(r[COL.date]),
@@ -1067,22 +1119,9 @@ function renderDashboard(data) {
     });
   }
 
-  // TOP 3
-  const sorted = [...hasViews].sort((a,b)=>toNum(b[COL.views])-toNum(a[COL.views])).slice(0,3);
-  document.getElementById('topPosts').innerHTML = sorted.length ? sorted.map((r,i)=>{
-    const link = String(r[COL.link]||'').trim();
-    const snippet = cleanText(r[COL.text]).slice(0,38) || '(내용 없음)';
-    const inner = `
-      <div class="post-rank">${i+1}</div>
-      <div class="post-info">
-        <div class="post-snippet">${snippet}...</div>
-        <div class="post-meta">${fmtDate(r[COL.date])} · 좋아요 ${toNum(r[COL.likes]).toLocaleString()}</div>
-      </div>
-      <div class="post-views">${fmtNum(toNum(r[COL.views]))}</div>`;
-    return link
-      ? `<a href="${link}" target="_blank" class="post-row" style="text-decoration:none;color:inherit;cursor:pointer" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">${inner}</a>`
-      : `<div class="post-row">${inner}</div>`;
-  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">조회수 데이터가 없습니다</div>';
+  // TOP 3 (현재 필터된 데이터로 렌더)
+  topPostsData = data;
+  renderTopPosts();
 
   // 테이블 (최신 30개)
   const recent30 = data.slice(-30).reverse();
