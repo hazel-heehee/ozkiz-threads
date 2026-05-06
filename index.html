@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OzKids · Threads 매니저</title>
+<title>ozkiz threads manager</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -275,7 +275,6 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
       </div>
     </div>
     <div style="padding:0 2px;line-height:1.6">
-      <div style="font-size:11px;color:var(--text3)">by <span style="color:var(--text2);font-weight:600">hazel</span></div>
       <div style="font-size:10px;color:var(--text3)" id="updatedDate"></div>
     </div>
   </div>
@@ -554,30 +553,74 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
     <div class="page-top">
       <div class="page-title">스레드 레퍼런스</div>
       <div class="page-actions">
+        <a href="https://docs.google.com/spreadsheets/d/1IGyF16n9Ez6J6ZAtLiNVBqzdt4nZiQtmM3VJY2O_W9I/edit" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none">📊 시트 열기</a>
         <button class="btn btn-ghost btn-sm" onclick="loadReferences(true)">↻ 새로고침</button>
         <button class="btn btn-ghost btn-sm" onclick="exportRefCSV()">📥 CSV 다운로드</button>
       </div>
     </div>
 
     <div style="padding:20px 28px">
-      <!-- 시트 연동 안내 -->
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div style="font-size:24px">📊</div>
-        <div style="flex:1;min-width:280px">
-          <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:4px">
-            구글 스프레드시트와 연동되어 있어요
-          </div>
-          <div style="font-size:12px;color:#1e40af;line-height:1.5">
-            레퍼런스 추가 / 수정 / 삭제는 <b>[스레드]레퍼런스</b> 탭에서 직접 입력해주세요.<br>
-            시트에 입력 후 <b>↻ 새로고침</b> 버튼을 누르면 여기에 반영됩니다. (캐시 5분)
+      <!-- 필터 영역 -->
+      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:13px;font-weight:700;color:var(--text)">🔍 필터</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:11px;color:var(--text2)">조건 결합:</span>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="radio" name="refFilterMode" value="and" checked onchange="applyRefFilters()" style="margin:0"/>AND (모두 만족)</label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="radio" name="refFilterMode" value="or" onchange="applyRefFilters()" style="margin:0"/>OR (하나라도)</label>
+            <button class="btn btn-ghost btn-sm" onclick="resetRefFilters()" style="font-size:11px;padding:4px 10px">초기화</button>
           </div>
         </div>
-        <a href="https://docs.google.com/spreadsheets/d/1IGyF16n9Ez6J6ZAtLiNVBqzdt4nZiQtmM3VJY2O_W9I/edit" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none">시트 열기 →</a>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <!-- 날짜 범위 -->
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">📅 기록일자 범위</div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input type="date" id="refFilterDateFrom" onchange="applyRefFilters()" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;flex:1;font-family:inherit"/>
+              <span style="font-size:11px;color:var(--text3)">~</span>
+              <input type="date" id="refFilterDateTo" onchange="applyRefFilters()" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;flex:1;font-family:inherit"/>
+            </div>
+          </div>
+
+          <!-- 미디어 -->
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">🎨 미디어 첨부</div>
+            <div style="display:flex;gap:8px;align-items:center;padding:6px 0">
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" id="refFilterImage" onchange="applyRefFilters()" style="margin:0"/>📷 이미지</label>
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" id="refFilterVideo" onchange="applyRefFilters()" style="margin:0"/>🎬 영상</label>
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" id="refFilterTextOnly" onchange="applyRefFilters()" style="margin:0"/>📝 텍스트만</label>
+            </div>
+          </div>
+
+          <!-- 수치 임계값 -->
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">📊 수치 이상</div>
+            <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+              <select id="refFilterMetric" onchange="applyRefFilters()" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">
+                <option value="">(선택)</option>
+                <option value="views">조회수</option>
+                <option value="likes">좋아요</option>
+                <option value="comments">댓글</option>
+                <option value="reposts">리포스트</option>
+                <option value="shares">공유</option>
+              </select>
+              <input type="number" id="refFilterMinValue" placeholder="100" oninput="applyRefFilters()" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:80px;font-family:inherit"/>
+              <span style="font-size:11px;color:var(--text2)">이상</span>
+            </div>
+          </div>
+
+          <!-- 키워드 검색 -->
+          <div style="grid-column:1/-1">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">🔎 글/키워드 검색</div>
+            <input type="text" id="refFilterText" placeholder="검색어를 입력하세요 (글 내용, 키워드, 댓글내용에서 찾음)" oninput="applyRefFilters()" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit"/>
+          </div>
+        </div>
       </div>
 
       <!-- 누적 통계 -->
       <div style="display:flex;gap:16px;margin-bottom:16px;font-size:12px;color:var(--text2)">
-        <span>총 <b id="refCount" style="color:var(--text)">0</b>개</span>
+        <span><b id="refCount" style="color:var(--text)">0</b>개 표시 중 (전체 <span id="refTotalCount">0</span>개)</span>
         <span>·</span>
         <span>총 조회수 <b id="refTotalViews" style="color:var(--text)">0</b></span>
         <span>·</span>
@@ -586,25 +629,24 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
 
       <!-- 누적 표 -->
       <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:#fff">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1300px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px">
           <thead style="background:#f8fafc">
             <tr style="border-bottom:1px solid var(--border)">
-              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">기록일자</th>
-              <th style="padding:10px;text-align:center;font-weight:600;color:var(--text2);width:60px">미디어</th>
-              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">글</th>
-              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">첫 문장</th>
-              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">조회수</th>
-              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">좋아요</th>
-              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">댓글</th>
-              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">리포스트</th>
-              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">공유</th>
-              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">키워드</th>
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);cursor:pointer;user-select:none" onclick="sortRefs('date')">기록일자 <span id="sort-date"></span></th>
+              <th style="padding:10px;text-align:center;font-weight:600;color:var(--text2);width:60px;cursor:pointer;user-select:none" onclick="sortRefs('media')">미디어 <span id="sort-media"></span></th>
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:240px;cursor:pointer;user-select:none" onclick="sortRefs('content')">글 <span id="sort-content"></span></th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2);cursor:pointer;user-select:none" onclick="sortRefs('views')">조회수 <span id="sort-views"></span></th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2);cursor:pointer;user-select:none" onclick="sortRefs('likes')">좋아요 <span id="sort-likes"></span></th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2);cursor:pointer;user-select:none" onclick="sortRefs('comments')">댓글 <span id="sort-comments"></span></th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2);cursor:pointer;user-select:none" onclick="sortRefs('reposts')">리포스트 <span id="sort-reposts"></span></th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2);cursor:pointer;user-select:none" onclick="sortRefs('shares')">공유 <span id="sort-shares"></span></th>
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);cursor:pointer;user-select:none" onclick="sortRefs('keyword')">키워드 <span id="sort-keyword"></span></th>
               <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">💡 댓글내용</th>
               <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">URL</th>
             </tr>
           </thead>
           <tbody id="refTableBody">
-            <tr><td colspan="12" style="padding:40px;text-align:center;color:var(--text3)">시트에서 데이터 불러오는 중...</td></tr>
+            <tr><td colspan="11" style="padding:40px;text-align:center;color:var(--text3)">시트에서 데이터 불러오는 중...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1688,7 +1730,7 @@ function buildPrompt() {
   };
   const ctaInstruction = ctaMap[cta] || '공감 또는 질문형 CTA 포함.';
 
-  const p = `당신은 오즈키즈(OzKids) 아동복 브랜드의 스레드(Threads) 전담 마케터입니다.
+  const p = `당신은 오즈키즈(ozkiz) 아동복 브랜드의 스레드(Threads) 전담 마케터입니다.
 
 브랜드: 오즈키즈 | 아동복 (0세~초등) | 15년 제조 경력 브랜드
 보이스: 따뜻하고 친근한 엄마 친구 같은 말투. 진심이 느껴지게. 판매보다 공감 우선.
@@ -1858,20 +1900,125 @@ function clearAllRefs() {
   renderRefTable();
 }
 
-function renderRefTable() {
+// ── 레퍼런스 정렬/필터 상태
+let refSortCol = 'date';
+let refSortAsc = false;
+
+function sortRefs(col) {
+  if (refSortCol === col) {
+    refSortAsc = !refSortAsc;
+  } else {
+    refSortCol = col;
+    refSortAsc = false;
+  }
+  applyRefFilters();
+}
+
+// 필터 + 정렬 적용
+function applyRefFilters() {
+  const mode = (document.querySelector('input[name="refFilterMode"]:checked') || {}).value || 'and';
+  const dateFrom = document.getElementById('refFilterDateFrom').value;
+  const dateTo = document.getElementById('refFilterDateTo').value;
+  const wantImage = document.getElementById('refFilterImage').checked;
+  const wantVideo = document.getElementById('refFilterVideo').checked;
+  const wantTextOnly = document.getElementById('refFilterTextOnly').checked;
+  const metric = document.getElementById('refFilterMetric').value;
+  const minVal = parseInt(document.getElementById('refFilterMinValue').value) || 0;
+  const searchText = document.getElementById('refFilterText').value.trim().toLowerCase();
+
+  // 활성 조건 모음 (각각 함수로)
+  const conditions = [];
+
+  if (dateFrom) conditions.push(r => r.date && r.date >= dateFrom);
+  if (dateTo)   conditions.push(r => r.date && r.date <= dateTo);
+
+  // 미디어 — 체크된 것 중 하나라도 맞으면 통과 (미디어 조건 자체가 OR-내부)
+  if (wantImage || wantVideo || wantTextOnly) {
+    conditions.push(r => {
+      const isText = !r.hasImage && !r.hasVideo;
+      return (wantImage && r.hasImage) || (wantVideo && r.hasVideo) || (wantTextOnly && isText);
+    });
+  }
+
+  if (metric && minVal > 0) conditions.push(r => (r[metric] || 0) >= minVal);
+
+  if (searchText) conditions.push(r => {
+    const haystack = [(r.content||''), (r.firstSentence||''), (r.keyword||''), (r.point||'')].join(' ').toLowerCase();
+    return haystack.includes(searchText);
+  });
+
+  let filtered;
+  if (!conditions.length) {
+    filtered = [...references];
+  } else if (mode === 'and') {
+    filtered = references.filter(r => conditions.every(fn => fn(r)));
+  } else {
+    filtered = references.filter(r => conditions.some(fn => fn(r)));
+  }
+
+  // 정렬
+  filtered.sort((a, b) => {
+    let va, vb;
+    if (refSortCol === 'media') {
+      va = (a.hasImage ? 2 : 0) + (a.hasVideo ? 1 : 0);
+      vb = (b.hasImage ? 2 : 0) + (b.hasVideo ? 1 : 0);
+    } else if (refSortCol === 'content') {
+      va = String(a.content || '').toLowerCase();
+      vb = String(b.content || '').toLowerCase();
+      return refSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    } else if (refSortCol === 'keyword') {
+      va = String(a.keyword || '').toLowerCase();
+      vb = String(b.keyword || '').toLowerCase();
+      return refSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    } else if (refSortCol === 'date') {
+      va = a.date || '';
+      vb = b.date || '';
+      return refSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    } else {
+      va = a[refSortCol] || 0;
+      vb = b[refSortCol] || 0;
+    }
+    return refSortAsc ? va - vb : vb - va;
+  });
+
+  renderRefRows(filtered);
+}
+
+function resetRefFilters() {
+  document.getElementById('refFilterDateFrom').value = '';
+  document.getElementById('refFilterDateTo').value = '';
+  document.getElementById('refFilterImage').checked = false;
+  document.getElementById('refFilterVideo').checked = false;
+  document.getElementById('refFilterTextOnly').checked = false;
+  document.getElementById('refFilterMetric').value = '';
+  document.getElementById('refFilterMinValue').value = '';
+  document.getElementById('refFilterText').value = '';
+  document.querySelector('input[name="refFilterMode"][value="and"]').checked = true;
+  applyRefFilters();
+}
+
+function renderRefRows(rows) {
   const body = document.getElementById('refTableBody');
   if (!body) return;
 
-  document.getElementById('refCount').textContent = references.length;
-  document.getElementById('refTotalViews').textContent = references.reduce((s,r)=>s+(r.views||0),0).toLocaleString();
-  document.getElementById('refAvgLikes').textContent = references.length ? Math.round(references.reduce((s,r)=>s+(r.likes||0),0)/references.length).toLocaleString() : 0;
+  // 통계
+  document.getElementById('refCount').textContent = rows.length;
+  document.getElementById('refTotalCount').textContent = references.length;
+  document.getElementById('refTotalViews').textContent = rows.reduce((s,r)=>s+(r.views||0),0).toLocaleString();
+  document.getElementById('refAvgLikes').textContent = rows.length ? Math.round(rows.reduce((s,r)=>s+(r.likes||0),0)/rows.length).toLocaleString() : 0;
 
-  if (!references.length) {
-    body.innerHTML = '<tr><td colspan="12" style="padding:40px;text-align:center;color:var(--text3)">시트에 레퍼런스 데이터가 없어요. [스레드]레퍼런스 탭에 입력 후 새로고침해주세요.</td></tr>';
+  // 정렬 표시
+  ['date','media','content','views','likes','comments','reposts','shares','keyword'].forEach(c => {
+    const el = document.getElementById('sort-' + c);
+    if (el) el.textContent = c === refSortCol ? (refSortAsc ? '↑' : '↓') : '';
+  });
+
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="11" style="padding:40px;text-align:center;color:var(--text3)">${references.length ? '필터 결과 없음' : '시트에서 데이터를 불러오지 못했어요'}</td></tr>`;
     return;
   }
 
-  body.innerHTML = references.map(r => {
+  body.innerHTML = rows.map(r => {
     const mediaIcons = [];
     if (r.hasImage) mediaIcons.push('📷');
     if (r.hasVideo) mediaIcons.push('🎬');
@@ -1880,8 +2027,7 @@ function renderRefTable() {
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:10px;white-space:nowrap;color:var(--text2)">${r.date}</td>
       <td style="padding:10px;text-align:center;font-size:14px" title="${r.hasImage&&r.hasVideo?'이미지+동영상':r.hasImage?'이미지':r.hasVideo?'동영상':'텍스트만'}">${mediaCell}</td>
-      <td style="padding:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:#3b82f6;text-decoration:underline" onclick="openRefDetail(${r.id})" title="클릭해서 전체 내용 보기">${(r.content||'').slice(0,40)}${(r.content||'').length>40?'...':''}</td>
-      <td style="padding:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.firstSentence||'').replace(/"/g,'&quot;')}">${r.firstSentence||''}</td>
+      <td style="padding:10px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:#3b82f6;text-decoration:underline" onclick="openRefDetail(${r.id})" title="클릭해서 전체 내용 보기">${(r.content||'').slice(0,50)}${(r.content||'').length>50?'...':''}</td>
       <td style="padding:10px;text-align:right;font-weight:600">${(r.views||0).toLocaleString()}</td>
       <td style="padding:10px;text-align:right;color:var(--red)">${(r.likes||0).toLocaleString()}</td>
       <td style="padding:10px;text-align:right;color:var(--text2)">${(r.comments||0).toLocaleString()}</td>
@@ -1892,6 +2038,10 @@ function renderRefTable() {
       <td style="padding:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.link?`<a href="${r.link}" target="_blank" style="color:#3b82f6">${r.link.slice(0,30)}...</a>`:'-'}</td>
     </tr>`;
   }).join('');
+}
+
+function renderRefTable() {
+  applyRefFilters();
 }
 
 // 레퍼런스 상세보기 모달
