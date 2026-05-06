@@ -554,67 +554,25 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
     <div class="page-top">
       <div class="page-title">스레드 레퍼런스</div>
       <div class="page-actions">
-        <button class="btn btn-primary btn-sm" onclick="exportRefCSV()" style="font-weight:700">💾 CSV 백업 다운로드</button>
-        <button class="btn btn-ghost btn-sm" onclick="clearAllRefs()" style="color:var(--red)">전체 삭제</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadReferences(true)">↻ 새로고침</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportRefCSV()">📥 CSV 다운로드</button>
       </div>
     </div>
 
     <div style="padding:20px 28px">
-      <!-- 백업 안내 배너 -->
-      <div id="backupBanner" style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div style="font-size:24px">⚠️</div>
+      <!-- 시트 연동 안내 -->
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:24px">📊</div>
         <div style="flex:1;min-width:280px">
-          <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:4px">
-            매월 1일 CSV 백업 잊지 마세요!
+          <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:4px">
+            구글 스프레드시트와 연동되어 있어요
           </div>
-          <div style="font-size:12px;color:#78350f;line-height:1.5">
-            데이터는 이 브라우저에만 저장돼요. 캐시 삭제·다른 PC 사용 시 모두 사라집니다.<br>
-            <b>최소 한 달에 한 번</b> 우측 상단 <b>💾 CSV 백업 다운로드</b> 버튼을 눌러서 파일로 저장해주세요!
-          </div>
-          <div style="font-size:11px;color:#78350f;margin-top:6px">
-            마지막 백업: <b id="lastBackupDate" style="color:#92400e">없음</b>
-            <span id="backupWarning" style="color:#dc2626;font-weight:700;margin-left:8px"></span>
+          <div style="font-size:12px;color:#1e40af;line-height:1.5">
+            레퍼런스 추가 / 수정 / 삭제는 <b>[스레드]레퍼런스</b> 탭에서 직접 입력해주세요.<br>
+            시트에 입력 후 <b>↻ 새로고침</b> 버튼을 누르면 여기에 반영됩니다. (캐시 5분)
           </div>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="exportRefCSV()" style="background:#f59e0b;border-color:#f59e0b">지금 백업하기</button>
-      </div>
-
-      <!-- 입력 폼 -->
-      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:20px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:12px">새 레퍼런스 추가</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-          <input type="date" id="refDate" class="ai-input" style="margin:0" />
-          <input type="number" id="refViews" class="ai-input" placeholder="조회수" style="margin:0" />
-          <input type="number" id="refLikes" class="ai-input" placeholder="좋아요" style="margin:0" />
-          <input type="number" id="refComments" class="ai-input" placeholder="댓글" style="margin:0" />
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-          <input type="number" id="refReposts" class="ai-input" placeholder="리포스트" style="margin:0" />
-          <input type="number" id="refShares" class="ai-input" placeholder="공유" style="margin:0" />
-          <input type="text" id="refKeyword" class="ai-input" placeholder="키워드 (예: 등원룩, 봄코디)" style="margin:0" />
-        </div>
-        <input type="url" id="refLink" class="ai-input" placeholder="https://www.threads.com/..." style="margin-bottom:8px" />
-
-        <!-- 미디어 첨부 체크 -->
-        <div style="display:flex;gap:14px;align-items:center;padding:8px 12px;background:#fff;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;font-size:12px">
-          <span style="color:var(--text2);font-weight:600">미디어:</span>
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
-            <input type="checkbox" id="refHasImage" style="margin:0;cursor:pointer" />
-            <span>📷 이미지</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
-            <input type="checkbox" id="refHasVideo" style="margin:0;cursor:pointer" />
-            <span>🎬 동영상</span>
-          </label>
-          <span style="color:var(--text3);font-size:11px;margin-left:auto">텍스트만 있으면 둘 다 체크 안함</span>
-        </div>
-
-        <textarea id="refContent" class="ai-input" rows="3" placeholder="글 내용 전체 또는 첫 문장..." style="margin-bottom:8px"></textarea>
-        <textarea id="refPoint" class="ai-input" rows="3" placeholder="💡 이 글이 왜 터졌나? 인사이트 포인트를 적어두세요&#10;예: 솔직한 후기 톤, 워킹맘 공감 포인트, 가격 강조, 구체적 숫자 사용..." style="margin-bottom:10px;background:#fffbeb;border-color:#fde68a"></textarea>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary btn-sm" onclick="addReference()">+ 추가</button>
-          <button class="btn btn-ghost btn-sm" onclick="clearRefForm()">입력 지우기</button>
-        </div>
+        <a href="https://docs.google.com/spreadsheets/d/1IGyF16n9Ez6J6ZAtLiNVBqzdt4nZiQtmM3VJY2O_W9I/edit" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none">시트 열기 →</a>
       </div>
 
       <!-- 누적 통계 -->
@@ -641,13 +599,12 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
               <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">리포스트</th>
               <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">공유</th>
               <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">키워드</th>
-              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">💡 포인트</th>
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">💡 댓글내용</th>
               <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">URL</th>
-              <th style="padding:10px;text-align:center;font-weight:600;color:var(--text2);width:60px">삭제</th>
             </tr>
           </thead>
           <tbody id="refTableBody">
-            <tr><td colspan="13" style="padding:40px;text-align:center;color:var(--text3)">아직 저장된 레퍼런스가 없어요. 위에서 추가해보세요!</td></tr>
+            <tr><td colspan="12" style="padding:40px;text-align:center;color:var(--text3)">시트에서 데이터 불러오는 중...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1245,7 +1202,7 @@ window.addEventListener('load', () => {
   if (apiKey) setConnected(true);
   renderCalendar();
   renderHistory();
-  renderRefTable();
+  loadReferences();
   loadSheetData();
   document.getElementById('updatedDate').textContent = '업데이트 ' + new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric'});
 });
@@ -1781,8 +1738,70 @@ async function copyPromptAndOpen(target) {
   }
 }
 
-// ── 레퍼런스 관리
-let references = JSON.parse(localStorage.getItem('oz_refs') || '[]');
+// ── 레퍼런스 (시트 연동)
+let references = []; // 시트에서 불러옴
+let refsLoading = false;
+
+// 시트에서 레퍼런스 데이터 가져오기
+async function loadReferences(force = false) {
+  if (refsLoading) return;
+  refsLoading = true;
+
+  const body = document.getElementById('refTableBody');
+  if (body) {
+    body.innerHTML = '<tr><td colspan="13" style="padding:40px;text-align:center;color:var(--text3)">시트에서 데이터 불러오는 중...</td></tr>';
+  }
+
+  try {
+    const url = SHEET_API_URL + '&tab=refs' + (force ? '&force=1' : '');
+    const res = await fetch(url);
+    const json = await res.json();
+
+    if (json.error) {
+      if (body) body.innerHTML = `<tr><td colspan="13" style="padding:40px;text-align:center;color:var(--red)">오류: ${json.error}</td></tr>`;
+      refsLoading = false;
+      return;
+    }
+
+    // 첫 행은 헤더, 나머지가 데이터
+    // 시트 컬럼: A:일자, B:태그, C:링크, D:조회수, E:첫줄, F:나머지, G:좋아요, H:댓글, I:리포스팅, J:공유, K:댓글내용, L:게시자댓글여부, M:이미지영상, N:음악
+    const rows = json.slice(1);
+    references = rows.map((r, i) => {
+      const date = r[0];
+      const dateStr = date instanceof Date || /^\d{4}/.test(String(date))
+        ? new Date(date).toISOString().split('T')[0]
+        : String(date || '');
+      const media = String(r[12] || '').trim();
+      const fullContent = String(r[5] || r[4] || '').trim();
+      const firstLine = String(r[4] || '').trim() || fullContent.split('\n')[0].slice(0, 60);
+
+      return {
+        id: i + 1,
+        date: dateStr,
+        keyword: String(r[1] || '').trim(),
+        link: String(r[2] || '').trim(),
+        views: parseInt(String(r[3] || '0').replace(/[^0-9]/g, '')) || 0,
+        firstSentence: firstLine,
+        content: fullContent,
+        likes: parseInt(String(r[6] || '0').replace(/[^0-9]/g, '')) || 0,
+        comments: parseInt(String(r[7] || '0').replace(/[^0-9]/g, '')) || 0,
+        reposts: parseInt(String(r[8] || '0').replace(/[^0-9]/g, '')) || 0,
+        shares: parseInt(String(r[9] || '0').replace(/[^0-9]/g, '')) || 0,
+        point: String(r[10] || '').trim(), // 댓글내용
+        creatorReply: String(r[11] || '').trim(), // 게시자 댓글 여부
+        hasImage: media.includes('이미지'),
+        hasVideo: media.includes('영상') || media.includes('동영상'),
+        hasMusic: String(r[13] || '').trim().toUpperCase() === 'O'
+      };
+    });
+
+    renderRefTable();
+    refsLoading = false;
+  } catch (e) {
+    if (body) body.innerHTML = `<tr><td colspan="13" style="padding:40px;text-align:center;color:var(--red)">불러오기 실패: ${e.message}</td></tr>`;
+    refsLoading = false;
+  }
+}
 
 function addReference() {
   const date = document.getElementById('refDate').value || new Date().toISOString().split('T')[0];
@@ -1847,11 +1866,8 @@ function renderRefTable() {
   document.getElementById('refTotalViews').textContent = references.reduce((s,r)=>s+(r.views||0),0).toLocaleString();
   document.getElementById('refAvgLikes').textContent = references.length ? Math.round(references.reduce((s,r)=>s+(r.likes||0),0)/references.length).toLocaleString() : 0;
 
-  // 백업 상태도 같이 업데이트
-  updateBackupStatus();
-
   if (!references.length) {
-    body.innerHTML = '<tr><td colspan="13" style="padding:40px;text-align:center;color:var(--text3)">아직 저장된 레퍼런스가 없어요. 위에서 추가해보세요!</td></tr>';
+    body.innerHTML = '<tr><td colspan="12" style="padding:40px;text-align:center;color:var(--text3)">시트에 레퍼런스 데이터가 없어요. [스레드]레퍼런스 탭에 입력 후 새로고침해주세요.</td></tr>';
     return;
   }
 
@@ -1874,7 +1890,6 @@ function renderRefTable() {
       <td style="padding:10px"><span style="background:var(--surface3);padding:2px 7px;border-radius:6px;font-size:11px">${r.keyword||'-'}</span></td>
       <td style="padding:10px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#fffbeb" title="${(r.point||'').replace(/"/g,'&quot;')}">${r.point ? `💡 ${r.point.slice(0,50)}${r.point.length>50?'...':''}` : '<span style="color:var(--text3)">-</span>'}</td>
       <td style="padding:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.link?`<a href="${r.link}" target="_blank" style="color:#3b82f6">${r.link.slice(0,30)}...</a>`:'-'}</td>
-      <td style="padding:10px;text-align:center"><button onclick="deleteRef(${r.id})" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px">×</button></td>
     </tr>`;
   }).join('');
 }
