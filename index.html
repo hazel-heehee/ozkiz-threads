@@ -439,6 +439,7 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
       <div class="page-actions">
         <div class="cal-nav">
           <button onclick="changeMonth(-1)">←</button>
+          <button onclick="goToToday()" style="padding:5px 14px;font-size:12px;font-weight:600">오늘</button>
           <button onclick="changeMonth(1)">→</button>
         </div>
         <button class="btn btn-primary btn-sm" onclick="openAddPost()">+ 추가</button>
@@ -1357,6 +1358,13 @@ function changeMonth(dir) {
   calMonth += dir;
   if (calMonth > 11) { calMonth = 0; calYear++; }
   if (calMonth < 0)  { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+
+function goToToday() {
+  const today = new Date();
+  calYear = today.getFullYear();
+  calMonth = today.getMonth();
   renderCalendar();
 }
 
