@@ -126,13 +126,18 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
 .cal-day:hover{border-color:var(--border2)}
 .cal-day.today{border-color:var(--text);border-width:1.5px}
 .cal-day.empty{background:transparent;border-color:transparent;pointer-events:none}
+.cal-day.drag-over{background:rgba(59,130,246,.08);border-color:#3b82f6}
 .cal-day-num{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px}
 .cal-day.today .cal-day-num{color:var(--text);background:var(--text);color:var(--bg);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;margin-bottom:5px}
-.cal-post-dot{font-size:11px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface3);border-radius:4px;padding:2px 5px;margin-bottom:2px;color:var(--text2)}
-.cal-post-dot.published{background:rgba(34,197,94,.12);color:var(--green)}
-.cal-post-dot.scheduled{background:rgba(255,255,255,.07);color:var(--text2)}
-.cal-add-btn{position:absolute;bottom:6px;right:6px;font-size:16px;color:var(--text3);opacity:0;transition:opacity .15s;background:none;border:none;cursor:pointer;line-height:1}
+.cal-post-dot{font-size:11px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:4px;padding:2px 5px;margin-bottom:2px;cursor:pointer;transition:all .15s}
+.cal-post-dot.published{background:rgba(34,197,94,.15);color:#16a34a;border:1px solid rgba(34,197,94,.25)}
+.cal-post-dot.scheduled{background:#f3f4f6;color:#6b7280;border:1px dashed #d1d5db;cursor:grab}
+.cal-post-dot.scheduled:hover{background:#e5e7eb;color:#374151}
+.cal-post-dot.scheduled.selected{outline:2px solid #3b82f6;outline-offset:1px;background:#dbeafe;color:#1e40af}
+.cal-post-dot.scheduled.dragging{opacity:.4}
+.cal-add-btn{position:absolute;bottom:6px;right:6px;font-size:16px;color:var(--text3);opacity:0;transition:opacity .15s;background:none;border:none;cursor:pointer;line-height:1;width:22px;height:22px;border-radius:50%}
 .cal-day:hover .cal-add-btn{opacity:1}
+.cal-add-btn:hover{background:var(--surface3);color:var(--text)}
 
 /* ── AI TOOLS ── */
 .tool-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
@@ -539,12 +544,31 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
     <div class="page-top">
       <div class="page-title">스레드 레퍼런스</div>
       <div class="page-actions">
-        <button class="btn btn-ghost btn-sm" onclick="exportRefCSV()">📥 CSV 다운로드</button>
+        <button class="btn btn-primary btn-sm" onclick="exportRefCSV()" style="font-weight:700">💾 CSV 백업 다운로드</button>
         <button class="btn btn-ghost btn-sm" onclick="clearAllRefs()" style="color:var(--red)">전체 삭제</button>
       </div>
     </div>
 
     <div style="padding:20px 28px">
+      <!-- 백업 안내 배너 -->
+      <div id="backupBanner" style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:24px">⚠️</div>
+        <div style="flex:1;min-width:280px">
+          <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:4px">
+            매월 1일 CSV 백업 잊지 마세요!
+          </div>
+          <div style="font-size:12px;color:#78350f;line-height:1.5">
+            데이터는 이 브라우저에만 저장돼요. 캐시 삭제·다른 PC 사용 시 모두 사라집니다.<br>
+            <b>최소 한 달에 한 번</b> 우측 상단 <b>💾 CSV 백업 다운로드</b> 버튼을 눌러서 파일로 저장해주세요!
+          </div>
+          <div style="font-size:11px;color:#78350f;margin-top:6px">
+            마지막 백업: <b id="lastBackupDate" style="color:#92400e">없음</b>
+            <span id="backupWarning" style="color:#dc2626;font-weight:700;margin-left:8px"></span>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="exportRefCSV()" style="background:#f59e0b;border-color:#f59e0b">지금 백업하기</button>
+      </div>
+
       <!-- 입력 폼 -->
       <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:20px">
         <div style="font-size:13px;font-weight:600;margin-bottom:12px">새 레퍼런스 추가</div>
@@ -554,12 +578,29 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
           <input type="number" id="refLikes" class="ai-input" placeholder="좋아요" style="margin:0" />
           <input type="number" id="refComments" class="ai-input" placeholder="댓글" style="margin:0" />
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
           <input type="number" id="refReposts" class="ai-input" placeholder="리포스트" style="margin:0" />
+          <input type="number" id="refShares" class="ai-input" placeholder="공유" style="margin:0" />
           <input type="text" id="refKeyword" class="ai-input" placeholder="키워드 (예: 등원룩, 봄코디)" style="margin:0" />
         </div>
         <input type="url" id="refLink" class="ai-input" placeholder="https://www.threads.com/..." style="margin-bottom:8px" />
-        <textarea id="refContent" class="ai-input" rows="3" placeholder="글 내용 전체 또는 첫 문장..." style="margin-bottom:10px"></textarea>
+
+        <!-- 미디어 첨부 체크 -->
+        <div style="display:flex;gap:14px;align-items:center;padding:8px 12px;background:#fff;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;font-size:12px">
+          <span style="color:var(--text2);font-weight:600">미디어:</span>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+            <input type="checkbox" id="refHasImage" style="margin:0;cursor:pointer" />
+            <span>📷 이미지</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+            <input type="checkbox" id="refHasVideo" style="margin:0;cursor:pointer" />
+            <span>🎬 동영상</span>
+          </label>
+          <span style="color:var(--text3);font-size:11px;margin-left:auto">텍스트만 있으면 둘 다 체크 안함</span>
+        </div>
+
+        <textarea id="refContent" class="ai-input" rows="3" placeholder="글 내용 전체 또는 첫 문장..." style="margin-bottom:8px"></textarea>
+        <textarea id="refPoint" class="ai-input" rows="3" placeholder="💡 이 글이 왜 터졌나? 인사이트 포인트를 적어두세요&#10;예: 솔직한 후기 톤, 워킹맘 공감 포인트, 가격 강조, 구체적 숫자 사용..." style="margin-bottom:10px;background:#fffbeb;border-color:#fde68a"></textarea>
         <div style="display:flex;gap:8px">
           <button class="btn btn-primary btn-sm" onclick="addReference()">+ 추가</button>
           <button class="btn btn-ghost btn-sm" onclick="clearRefForm()">입력 지우기</button>
@@ -577,23 +618,26 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
 
       <!-- 누적 표 -->
       <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:#fff">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1300px">
           <thead style="background:#f8fafc">
             <tr style="border-bottom:1px solid var(--border)">
               <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">기록일자</th>
+              <th style="padding:10px;text-align:center;font-weight:600;color:var(--text2);width:60px">미디어</th>
               <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">글</th>
               <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">첫 문장</th>
               <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">조회수</th>
               <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">좋아요</th>
               <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">댓글</th>
               <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">리포스트</th>
+              <th style="padding:10px;text-align:right;font-weight:600;color:var(--text2)">공유</th>
               <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">키워드</th>
+              <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2);min-width:200px">💡 포인트</th>
               <th style="padding:10px;text-align:left;font-weight:600;color:var(--text2)">URL</th>
               <th style="padding:10px;text-align:center;font-weight:600;color:var(--text2);width:60px">삭제</th>
             </tr>
           </thead>
           <tbody id="refTableBody">
-            <tr><td colspan="10" style="padding:40px;text-align:center;color:var(--text3)">아직 저장된 레퍼런스가 없어요. 위에서 추가해보세요!</td></tr>
+            <tr><td colspan="13" style="padding:40px;text-align:center;color:var(--text3)">아직 저장된 레퍼런스가 없어요. 위에서 추가해보세요!</td></tr>
           </tbody>
         </table>
       </div>
@@ -685,6 +729,73 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- 예약 글 작성 모달 -->
+<div class="modal-overlay" id="scheduleModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title" id="scheduleModalTitle">예약 글 작성</div>
+    <div class="modal-desc">콘텐츠를 미리 작성해두면 캘린더에 회색으로 표시되고, 발행 후 시트에 입력하면 녹색으로 바뀝니다.</div>
+
+    <input type="hidden" id="scheduleId" />
+    <input type="hidden" id="scheduleDate" />
+
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">날짜</div>
+    <div id="scheduleDateDisplay" style="padding:8px 12px;background:var(--surface2);border-radius:6px;margin-bottom:14px;font-size:13px;font-weight:600"></div>
+
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">제목/요약 <span style="color:var(--text3);font-weight:400">(캘린더에 표시)</span></div>
+    <input type="text" id="scheduleTitle" class="ai-input" placeholder="예: 봄나들이 코디 추천" style="margin-bottom:14px" />
+
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">분류 <span style="color:var(--text3);font-weight:400">(선택)</span></div>
+    <select id="scheduleType" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);font-family:inherit;font-size:13px;margin-bottom:14px">
+      <option value="">선택안함</option>
+      <option value="제품">제품</option>
+      <option value="생각">생각</option>
+      <option value="일상">일상</option>
+      <option value="회사일상">회사일상</option>
+      <option value="이벤트">이벤트</option>
+      <option value="공지">공지</option>
+      <option value="공감 공유">공감 공유</option>
+      <option value="육아 팁">육아 팁</option>
+    </select>
+
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">전체 내용 <span style="color:var(--text3);font-weight:400">(선택)</span></div>
+    <textarea id="scheduleContent" class="ai-input" rows="6" placeholder="발행할 글 전체를 미리 작성해두세요..." style="margin-bottom:8px"></textarea>
+
+    <div class="modal-btns" style="display:flex;justify-content:space-between;gap:8px">
+      <button class="btn btn-ghost btn-sm" id="scheduleDeleteBtn" onclick="deleteSchedule()" style="color:var(--red);display:none">삭제</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn btn-ghost btn-sm" onclick="closeScheduleModal()">취소</button>
+        <button class="btn btn-primary btn-sm" onclick="saveSchedule()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 일자별 게시물 보기 모달 -->
+<div class="modal-overlay" id="dayViewModal">
+  <div class="modal" style="max-width:600px;max-height:80vh;overflow-y:auto">
+    <div class="modal-title" id="dayViewTitle">게시물</div>
+    <div id="dayViewBody" style="margin-top:12px"></div>
+    <div class="modal-btns" style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+      <button class="btn btn-primary btn-sm" id="dayViewAddBtn">+ 예약 글 추가</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeDayView()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 레퍼런스 상세보기 모달 -->
+<div class="modal-overlay" id="refDetailModal">
+  <div class="modal" style="max-width:640px;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+      <div class="modal-title" id="refDetailTitle">레퍼런스 상세</div>
+      <button onclick="closeRefDetail()" style="background:none;border:none;font-size:24px;color:var(--text3);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div id="refDetailBody"></div>
+    <div class="modal-btns" style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+      <button class="btn btn-ghost btn-sm" onclick="closeRefDetail()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── STATE
 let apiKey = localStorage.getItem('oz_key') || '';
@@ -731,9 +842,7 @@ function detectColumns(headerRow) {
 
 function fmtNum(n) {
   if (isNaN(n) || n === '' || n === 0) return '—';
-  if (n >= 10000) return (n/10000).toFixed(1) + '만';
-  if (n >= 1000) return (n/1000).toFixed(1) + 'K';
-  return n.toString();
+  return Number(n).toLocaleString();
 }
 
 async function loadSheetData(force = false) {
@@ -960,30 +1069,42 @@ function renderDashboard(data) {
 
   // TOP 3
   const sorted = [...hasViews].sort((a,b)=>toNum(b[COL.views])-toNum(a[COL.views])).slice(0,3);
-  document.getElementById('topPosts').innerHTML = sorted.length ? sorted.map((r,i)=>`
-    <div class="post-row">
+  document.getElementById('topPosts').innerHTML = sorted.length ? sorted.map((r,i)=>{
+    const link = String(r[COL.link]||'').trim();
+    const snippet = cleanText(r[COL.text]).slice(0,38) || '(내용 없음)';
+    const inner = `
       <div class="post-rank">${i+1}</div>
       <div class="post-info">
-        <div class="post-snippet">${cleanText(r[COL.text]).slice(0,38)||'(내용 없음)'}...</div>
+        <div class="post-snippet">${snippet}...</div>
         <div class="post-meta">${fmtDate(r[COL.date])} · 좋아요 ${toNum(r[COL.likes]).toLocaleString()}</div>
       </div>
-      <div class="post-views">${fmtNum(toNum(r[COL.views]))}</div>
-    </div>`).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">조회수 데이터가 없습니다</div>';
+      <div class="post-views">${fmtNum(toNum(r[COL.views]))}</div>`;
+    return link
+      ? `<a href="${link}" target="_blank" class="post-row" style="text-decoration:none;color:inherit;cursor:pointer" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">${inner}</a>`
+      : `<div class="post-row">${inner}</div>`;
+  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">조회수 데이터가 없습니다</div>';
 
   // 테이블 (최신 30개)
   const recent30 = data.slice(-30).reverse();
-  document.getElementById('recentTableBody').innerHTML = recent30.map(r=>`
+  document.getElementById('recentTableBody').innerHTML = recent30.map(r=>{
+    const txt = cleanText(r[COL.text]);
+    const link = String(r[COL.link]||'').trim();
+    const txtDisplay = txt.slice(0,50) + (txt.length>50?'...':'');
+    const txtCell = link
+      ? `<a href="${link}" target="_blank" style="color:var(--text);text-decoration:none;display:block" onmouseover="this.style.color='#3b82f6';this.style.textDecoration='underline'" onmouseout="this.style.color='var(--text)';this.style.textDecoration='none'">${txtDisplay}${link?' 🔗':''}</a>`
+      : txtDisplay;
+    return `
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:9px 10px;white-space:nowrap;font-size:12px;color:var(--text2)">${fmtDate(r[COL.date])}</td>
       <td style="padding:9px 10px;white-space:nowrap"><span style="font-size:11px;padding:2px 7px;border-radius:6px;background:var(--surface3);color:var(--text2)">${r[COL.type]||''}</span></td>
-      <td style="padding:9px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${cleanText(r[COL.text]).slice(0,50)}${cleanText(r[COL.text]).length>50?'...':''}</td>
+      <td style="padding:9px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;cursor:${link?'pointer':'default'}">${txtCell}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.follower]).toLocaleString()}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;font-weight:600">${fmtNum(toNum(r[COL.views]))}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--red)">${toNum(r[COL.likes]).toLocaleString()}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.comments])}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.reposts])}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.shares])}</td>
-    </tr>`).join('');
+    </tr>`}).join('');
 }
 
 // ── DATE FILTER
@@ -1059,18 +1180,25 @@ function sortTable(col) {
 
 function renderTableOnly(data) {
   const recent30 = data.slice(0, 30);
-  document.getElementById('recentTableBody').innerHTML = recent30.map(r => `
+  document.getElementById('recentTableBody').innerHTML = recent30.map(r => {
+    const txt = cleanText(r[COL.text]);
+    const link = String(r[COL.link]||'').trim();
+    const txtDisplay = txt.slice(0,50) + (txt.length>50?'...':'');
+    const txtCell = link
+      ? `<a href="${link}" target="_blank" style="color:var(--text);text-decoration:none;display:block" onmouseover="this.style.color='#3b82f6';this.style.textDecoration='underline'" onmouseout="this.style.color='var(--text)';this.style.textDecoration='none'">${txtDisplay} 🔗</a>`
+      : txtDisplay;
+    return `
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:9px 10px;white-space:nowrap;font-size:12px;color:var(--text2)">${fmtDate(r[COL.date])}</td>
       <td style="padding:9px 10px;white-space:nowrap"><span style="font-size:11px;padding:2px 7px;border-radius:6px;background:var(--surface3);color:var(--text2)">${r[COL.type]||''}</span></td>
-      <td style="padding:9px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${cleanText(r[COL.text]).slice(0,50)}${cleanText(r[COL.text]).length>50?'...':''}</td>
+      <td style="padding:9px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;cursor:${link?'pointer':'default'}">${txtCell}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.follower]).toLocaleString()}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;font-weight:600">${fmtNum(toNum(r[COL.views]))}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--red)">${toNum(r[COL.likes]).toLocaleString()}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.comments])}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.reposts])}</td>
       <td style="padding:9px 10px;text-align:right;font-size:13px;color:var(--text2)">${toNum(r[COL.shares])}</td>
-    </tr>`).join('');
+    </tr>`}).join('');
 }
 
 // ── INIT
@@ -1102,7 +1230,10 @@ function getChip(g) {
   return el ? el.textContent.trim() : '';
 }
 
-// ── CALENDAR (시트 데이터 연동)
+// ── CALENDAR (시트 데이터 + 예약 글)
+let scheduledPosts = JSON.parse(localStorage.getItem('oz_scheduled') || '[]');
+let selectedScheduleId = null;
+
 function renderCalendar() {
   const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   document.getElementById('calTitle').textContent = `${calYear}년 ${months[calMonth]}`;
@@ -1113,31 +1244,73 @@ function renderCalendar() {
   const total = new Date(calYear, calMonth+1, 0).getDate();
   const today = new Date();
 
-  // 시트 데이터에서 현재 월 게시물 매핑
-  const calPosts = {};
+  // 발행 완료 게시물 (시트)
+  const publishedPosts = {};
   if (sheetData.length) {
     sheetData.forEach(r => {
       const d = toDateObj(r[COL.date]);
       if (!d) return;
       if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
         const key = d.getDate();
-        if (!calPosts[key]) calPosts[key] = [];
         const txt = cleanText(r[COL.text]);
-        calPosts[key].push({ text: txt || r[COL.type] || '게시물', type: txt ? 'published' : 'scheduled' });
+        // 글이 있는 경우만 표시 (빈 게시물은 표시 안 함)
+        if (!txt) return;
+        if (!publishedPosts[key]) publishedPosts[key] = [];
+        publishedPosts[key].push({
+          text: txt.slice(0, 14) + (txt.length > 14 ? '...' : ''),
+          link: String(r[COL.link] || '').trim()
+        });
       }
     });
   }
 
+  // 예약 게시물 (localStorage)
+  const scheduled = {};
+  scheduledPosts.forEach(p => {
+    if (p.year === calYear && p.month === calMonth) {
+      if (!scheduled[p.day]) scheduled[p.day] = [];
+      scheduled[p.day].push(p);
+    }
+  });
+
   for (let i = 0; i < first; i++) html += `<div class="cal-day empty"></div>`;
   for (let d = 1; d <= total; d++) {
     const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
-    const dayPosts = calPosts[d] || [];
-    const dotHtml = dayPosts.slice(0,3).map(p=>`<div class="cal-post-dot ${p.type}">${p.text.slice(0,14)}${p.text.length>14?'...':''}</div>`).join('');
-    const moreHtml = dayPosts.length > 3 ? `<div style="font-size:10px;color:var(--text3);padding:1px 5px">+${dayPosts.length-3}개</div>` : '';
+    const pubs = publishedPosts[d] || [];
+    const schs = scheduled[d] || [];
+
+    // 발행된 글 (녹색, 클릭 시 URL 이동)
+    const pubHtml = pubs.slice(0,2).map(p =>
+      p.link
+        ? `<a href="${p.link}" target="_blank" class="cal-post-dot published" onclick="event.stopPropagation()" style="text-decoration:none;display:block">${p.text}</a>`
+        : `<div class="cal-post-dot published">${p.text}</div>`
+    ).join('');
+
+    // 예약 글 (회색, 드래그 가능)
+    const schHtml = schs.slice(0, Math.max(0, 3 - pubs.length)).map(p =>
+      `<div class="cal-post-dot scheduled" draggable="true"
+            data-schedule-id="${p.id}"
+            ondragstart="handleScheduleDragStart(event, '${p.id}')"
+            ondragend="handleScheduleDragEnd(event)"
+            onclick="event.stopPropagation();selectSchedule('${p.id}', this)"
+            ondblclick="event.stopPropagation();openScheduleModalEdit('${p.id}')"
+            title="더블클릭: 편집 / 클릭 후 Del키: 삭제 / 드래그: 날짜 이동">${p.title.slice(0,14)}${p.title.length>14?'...':''}</div>`
+    ).join('');
+
+    const totalCount = pubs.length + schs.length;
+    const shownCount = Math.min(2, pubs.length) + Math.max(0, Math.min(schs.length, 3 - pubs.length));
+    const moreHtml = totalCount > shownCount ? `<div style="font-size:10px;color:var(--text3);padding:1px 5px">+${totalCount - shownCount}개</div>` : '';
+
     const numEl = isToday
       ? `<div class="cal-day-num">${d}</div>`
       : `<div class="cal-day-num" style="color:var(--text3)">${d}</div>`;
-    html += `<div class="cal-day${isToday?' today':''}" onclick="calDayClick(${d})">${numEl}${dotHtml}${moreHtml}<button class="cal-add-btn" onclick="event.stopPropagation();addPostToDay(${d})">+</button></div>`;
+
+    html += `<div class="cal-day${isToday?' today':''}"
+                  data-day="${d}"
+                  onclick="calDayClick(${d})"
+                  ondragover="handleDayDragOver(event)"
+                  ondragleave="handleDayDragLeave(event)"
+                  ondrop="handleDayDrop(event, ${d})">${numEl}${pubHtml}${schHtml}${moreHtml}<button class="cal-add-btn" onclick="event.stopPropagation();openScheduleModalNew(${d})" title="예약 글 추가">+</button></div>`;
   }
   grid.innerHTML = html;
 }
@@ -1149,18 +1322,218 @@ function changeMonth(dir) {
   renderCalendar();
 }
 
+// 일자 클릭 → 모든 게시물 보기
 function calDayClick(d) {
-  if (!sheetData.length) return;
-  const rows = sheetData.filter(r => {
+  const pubs = sheetData.filter(r => {
     const dt = toDateObj(r[COL.date]);
-    return dt && dt.getFullYear()===calYear && dt.getMonth()===calMonth && dt.getDate()===d;
+    return dt && dt.getFullYear()===calYear && dt.getMonth()===calMonth && dt.getDate()===d
+      && cleanText(r[COL.text]);
   });
-  if (rows.length) {
-    showToast(`${calMonth+1}/${d} · ${rows.length}개 게시물`);
+  const schs = scheduledPosts.filter(p => p.year === calYear && p.month === calMonth && p.day === d);
+
+  if (!pubs.length && !schs.length) return;
+
+  document.getElementById('dayViewTitle').textContent = `${calYear}년 ${calMonth+1}월 ${d}일 게시물`;
+  let body = '';
+
+  if (pubs.length) {
+    body += `<div style="font-size:11px;color:var(--green);font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">✓ 발행 완료 (${pubs.length})</div>`;
+    body += pubs.map(r => {
+      const txt = cleanText(r[COL.text]);
+      const link = String(r[COL.link]||'').trim();
+      const head = link
+        ? `<a href="${link}" target="_blank" style="color:#3b82f6;font-size:11px">🔗 게시물 보기</a>`
+        : '';
+      return `<div style="background:rgba(34,197,94,.08);border-left:3px solid #16a34a;border-radius:6px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:13px;line-height:1.5;color:var(--text);margin-bottom:6px;white-space:pre-wrap">${txt.slice(0,200)}${txt.length>200?'...':''}</div>
+        <div style="display:flex;gap:12px;font-size:11px;color:var(--text3)">
+          <span>👁️ ${toNum(r[COL.views]).toLocaleString()}</span>
+          <span>❤️ ${toNum(r[COL.likes]).toLocaleString()}</span>
+          <span>💬 ${toNum(r[COL.comments]).toLocaleString()}</span>
+          ${head}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  if (schs.length) {
+    body += `<div style="font-size:11px;color:var(--text2);font-weight:600;margin:12px 0 8px;text-transform:uppercase;letter-spacing:.05em">📝 예약 글 (${schs.length})</div>`;
+    body += schs.map(p => `
+      <div style="background:#f3f4f6;border-left:3px dashed #9ca3af;border-radius:6px;padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="closeDayView();openScheduleModalEdit('${p.id}')">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">${p.title}</div>
+        ${p.type ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">${p.type}</div>` : ''}
+        ${p.content ? `<div style="font-size:12px;color:var(--text2);line-height:1.5;white-space:pre-wrap">${p.content.slice(0,150)}${p.content.length>150?'...':''}</div>` : ''}
+        <div style="font-size:10px;color:#3b82f6;margin-top:6px">클릭하여 편집</div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('dayViewBody').innerHTML = body;
+  document.getElementById('dayViewAddBtn').onclick = () => { closeDayView(); openScheduleModalNew(d); };
+  document.getElementById('dayViewModal').classList.add('open');
+}
+
+function closeDayView() {
+  document.getElementById('dayViewModal').classList.remove('open');
+}
+
+// 새 예약 글 모달 열기
+function openScheduleModalNew(d) {
+  document.getElementById('scheduleModalTitle').textContent = '예약 글 작성';
+  document.getElementById('scheduleId').value = '';
+  document.getElementById('scheduleDate').value = `${calYear}-${calMonth}-${d}`;
+  document.getElementById('scheduleDateDisplay').textContent = `${calYear}년 ${calMonth+1}월 ${d}일`;
+  document.getElementById('scheduleTitle').value = '';
+  document.getElementById('scheduleType').value = '';
+  document.getElementById('scheduleContent').value = '';
+  document.getElementById('scheduleDeleteBtn').style.display = 'none';
+  document.getElementById('scheduleModal').classList.add('open');
+  setTimeout(() => document.getElementById('scheduleTitle').focus(), 100);
+}
+
+// 기존 예약 글 편집
+function openScheduleModalEdit(id) {
+  const post = scheduledPosts.find(p => p.id === id);
+  if (!post) return;
+  document.getElementById('scheduleModalTitle').textContent = '예약 글 편집';
+  document.getElementById('scheduleId').value = post.id;
+  document.getElementById('scheduleDate').value = `${post.year}-${post.month}-${post.day}`;
+  document.getElementById('scheduleDateDisplay').textContent = `${post.year}년 ${post.month+1}월 ${post.day}일`;
+  document.getElementById('scheduleTitle').value = post.title;
+  document.getElementById('scheduleType').value = post.type || '';
+  document.getElementById('scheduleContent').value = post.content || '';
+  document.getElementById('scheduleDeleteBtn').style.display = 'inline-block';
+  document.getElementById('scheduleModal').classList.add('open');
+}
+
+function closeScheduleModal() {
+  document.getElementById('scheduleModal').classList.remove('open');
+}
+
+function saveSchedule() {
+  const title = document.getElementById('scheduleTitle').value.trim();
+  if (!title) { showToast('제목을 입력해주세요'); return; }
+
+  const id = document.getElementById('scheduleId').value;
+  const [year, month, day] = document.getElementById('scheduleDate').value.split('-').map(Number);
+  const type = document.getElementById('scheduleType').value;
+  const content = document.getElementById('scheduleContent').value.trim();
+
+  if (id) {
+    // 편집
+    const idx = scheduledPosts.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      scheduledPosts[idx] = { ...scheduledPosts[idx], title, type, content, year, month, day };
+    }
+  } else {
+    // 새로 추가
+    scheduledPosts.push({
+      id: 'sch_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      year, month, day,
+      title, type, content,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  localStorage.setItem('oz_scheduled', JSON.stringify(scheduledPosts));
+  closeScheduleModal();
+  renderCalendar();
+  showToast('✓ 저장 완료');
+}
+
+function deleteSchedule() {
+  const id = document.getElementById('scheduleId').value;
+  if (!id) return;
+  if (!confirm('이 예약 글을 삭제할까요?')) return;
+  scheduledPosts = scheduledPosts.filter(p => p.id !== id);
+  localStorage.setItem('oz_scheduled', JSON.stringify(scheduledPosts));
+  closeScheduleModal();
+  renderCalendar();
+  showToast('✓ 삭제됨');
+}
+
+// 예약글 선택 (Del 키 삭제용)
+function selectSchedule(id, el) {
+  // 기존 선택 해제
+  document.querySelectorAll('.cal-post-dot.scheduled.selected').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedScheduleId = id;
+}
+
+// Del 키로 선택된 예약글 삭제
+document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedScheduleId) {
+    // 입력 필드에서는 동작 안 함
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    e.preventDefault();
+    if (confirm('선택한 예약 글을 삭제할까요?')) {
+      scheduledPosts = scheduledPosts.filter(p => p.id !== selectedScheduleId);
+      localStorage.setItem('oz_scheduled', JSON.stringify(scheduledPosts));
+      selectedScheduleId = null;
+      renderCalendar();
+      showToast('✓ 삭제됨');
+    }
+  }
+  // ESC로 선택 해제
+  if (e.key === 'Escape' && selectedScheduleId) {
+    document.querySelectorAll('.cal-post-dot.scheduled.selected').forEach(el => el.classList.remove('selected'));
+    selectedScheduleId = null;
+  }
+});
+
+// 빈 영역 클릭 시 선택 해제
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.cal-post-dot.scheduled')) {
+    document.querySelectorAll('.cal-post-dot.scheduled.selected').forEach(el => el.classList.remove('selected'));
+    selectedScheduleId = null;
+  }
+});
+
+// 드래그 앤 드롭
+let draggedScheduleId = null;
+function handleScheduleDragStart(e, id) {
+  draggedScheduleId = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function handleScheduleDragEnd(e) {
+  e.target.classList.remove('dragging');
+  draggedScheduleId = null;
+  document.querySelectorAll('.cal-day.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+function handleDayDragOver(e) {
+  if (!draggedScheduleId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function handleDayDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function handleDayDrop(e, day) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!draggedScheduleId) return;
+  const idx = scheduledPosts.findIndex(p => p.id === draggedScheduleId);
+  if (idx === -1) return;
+  scheduledPosts[idx].year = calYear;
+  scheduledPosts[idx].month = calMonth;
+  scheduledPosts[idx].day = day;
+  localStorage.setItem('oz_scheduled', JSON.stringify(scheduledPosts));
+  renderCalendar();
+  showToast(`✓ ${calMonth+1}/${day}로 이동`);
+}
+
+function openAddPost() {
+  // 오늘 날짜로 기본 설정
+  const today = new Date();
+  if (today.getFullYear() === calYear && today.getMonth() === calMonth) {
+    openScheduleModalNew(today.getDate());
+  } else {
+    openScheduleModalNew(1);
   }
 }
-function addPostToDay(d) { showToast(`${calMonth+1}/${d} · 콘텐츠 생성 탭에서 초안을 만들어보세요`); }
-function openAddPost() { showToast('콘텐츠 생성 탭에서 초안을 만들고 날짜를 선택하세요'); }
 
 // ── API KEY
 function openModal() { document.getElementById('modal').classList.add('open'); }
@@ -1390,7 +1763,11 @@ function addReference() {
     likes:    parseInt(document.getElementById('refLikes').value) || 0,
     comments: parseInt(document.getElementById('refComments').value) || 0,
     reposts:  parseInt(document.getElementById('refReposts').value) || 0,
+    shares:   parseInt(document.getElementById('refShares').value) || 0,
     keyword:  document.getElementById('refKeyword').value.trim(),
+    point:    document.getElementById('refPoint').value.trim(),
+    hasImage: document.getElementById('refHasImage').checked,
+    hasVideo: document.getElementById('refHasVideo').checked,
     link
   };
 
@@ -1402,9 +1779,11 @@ function addReference() {
 }
 
 function clearRefForm() {
-  ['refDate','refContent','refLink','refViews','refLikes','refComments','refReposts','refKeyword'].forEach(id => {
+  ['refDate','refContent','refLink','refViews','refLikes','refComments','refReposts','refShares','refKeyword','refPoint'].forEach(id => {
     document.getElementById(id).value = '';
   });
+  document.getElementById('refHasImage').checked = false;
+  document.getElementById('refHasVideo').checked = false;
 }
 
 function deleteRef(id) {
@@ -1429,35 +1808,91 @@ function renderRefTable() {
   document.getElementById('refTotalViews').textContent = references.reduce((s,r)=>s+(r.views||0),0).toLocaleString();
   document.getElementById('refAvgLikes').textContent = references.length ? Math.round(references.reduce((s,r)=>s+(r.likes||0),0)/references.length).toLocaleString() : 0;
 
+  // 백업 상태도 같이 업데이트
+  updateBackupStatus();
+
   if (!references.length) {
-    body.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--text3)">아직 저장된 레퍼런스가 없어요. 위에서 추가해보세요!</td></tr>';
+    body.innerHTML = '<tr><td colspan="13" style="padding:40px;text-align:center;color:var(--text3)">아직 저장된 레퍼런스가 없어요. 위에서 추가해보세요!</td></tr>';
     return;
   }
 
-  body.innerHTML = references.map(r => `
+  body.innerHTML = references.map(r => {
+    const mediaIcons = [];
+    if (r.hasImage) mediaIcons.push('📷');
+    if (r.hasVideo) mediaIcons.push('🎬');
+    const mediaCell = mediaIcons.length ? mediaIcons.join(' ') : '<span style="color:var(--text3)">📝</span>';
+    return `
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:10px;white-space:nowrap;color:var(--text2)">${r.date}</td>
-      <td style="padding:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.content||'').replace(/"/g,'&quot;')}">${(r.content||'').slice(0,40)}${(r.content||'').length>40?'...':''}</td>
+      <td style="padding:10px;text-align:center;font-size:14px" title="${r.hasImage&&r.hasVideo?'이미지+동영상':r.hasImage?'이미지':r.hasVideo?'동영상':'텍스트만'}">${mediaCell}</td>
+      <td style="padding:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:#3b82f6;text-decoration:underline" onclick="openRefDetail(${r.id})" title="클릭해서 전체 내용 보기">${(r.content||'').slice(0,40)}${(r.content||'').length>40?'...':''}</td>
       <td style="padding:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.firstSentence||'').replace(/"/g,'&quot;')}">${r.firstSentence||''}</td>
       <td style="padding:10px;text-align:right;font-weight:600">${(r.views||0).toLocaleString()}</td>
       <td style="padding:10px;text-align:right;color:var(--red)">${(r.likes||0).toLocaleString()}</td>
       <td style="padding:10px;text-align:right;color:var(--text2)">${(r.comments||0).toLocaleString()}</td>
       <td style="padding:10px;text-align:right;color:var(--text2)">${(r.reposts||0).toLocaleString()}</td>
+      <td style="padding:10px;text-align:right;color:var(--text2)">${(r.shares||0).toLocaleString()}</td>
       <td style="padding:10px"><span style="background:var(--surface3);padding:2px 7px;border-radius:6px;font-size:11px">${r.keyword||'-'}</span></td>
+      <td style="padding:10px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#fffbeb" title="${(r.point||'').replace(/"/g,'&quot;')}">${r.point ? `💡 ${r.point.slice(0,50)}${r.point.length>50?'...':''}` : '<span style="color:var(--text3)">-</span>'}</td>
       <td style="padding:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.link?`<a href="${r.link}" target="_blank" style="color:#3b82f6">${r.link.slice(0,30)}...</a>`:'-'}</td>
       <td style="padding:10px;text-align:center"><button onclick="deleteRef(${r.id})" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px">×</button></td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
+}
+
+// 레퍼런스 상세보기 모달
+function openRefDetail(id) {
+  const r = references.find(ref => ref.id === id);
+  if (!r) return;
+
+  const mediaTags = [];
+  if (r.hasImage) mediaTags.push('<span style="background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600">📷 이미지</span>');
+  if (r.hasVideo) mediaTags.push('<span style="background:#fce7f3;color:#9f1239;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600">🎬 동영상</span>');
+  if (!mediaTags.length) mediaTags.push('<span style="background:#f3f4f6;color:#6b7280;padding:3px 10px;border-radius:6px;font-size:11px">📝 텍스트만</span>');
+
+  document.getElementById('refDetailTitle').textContent = `레퍼런스 · ${r.date}`;
+  document.getElementById('refDetailBody').innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      ${mediaTags.join('')}
+      ${r.keyword ? `<span style="background:var(--surface3);padding:3px 10px;border-radius:6px;font-size:11px">🏷️ ${r.keyword}</span>` : ''}
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;padding:12px;background:#f8fafc;border-radius:8px">
+      <div style="text-align:center"><div style="font-size:11px;color:var(--text3);margin-bottom:2px">조회수</div><div style="font-weight:700">${(r.views||0).toLocaleString()}</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--text3);margin-bottom:2px">좋아요</div><div style="font-weight:700;color:var(--red)">${(r.likes||0).toLocaleString()}</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--text3);margin-bottom:2px">댓글</div><div style="font-weight:700">${(r.comments||0).toLocaleString()}</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--text3);margin-bottom:2px">리포스트</div><div style="font-weight:700">${(r.reposts||0).toLocaleString()}</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--text3);margin-bottom:2px">공유</div><div style="font-weight:700">${(r.shares||0).toLocaleString()}</div></div>
+    </div>
+
+    <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">전체 글 내용</div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:14px;line-height:1.7;white-space:pre-wrap;margin-bottom:16px;max-height:280px;overflow-y:auto">${r.content || '<span style="color:var(--text3)">내용 없음</span>'}</div>
+
+    ${r.point ? `
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">💡 인사이트 포인트</div>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;margin-bottom:16px">${r.point}</div>
+    ` : ''}
+
+    ${r.link ? `
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">원본 URL</div>
+      <a href="${r.link}" target="_blank" style="color:#3b82f6;font-size:13px;word-break:break-all">${r.link}</a>
+    ` : ''}
+  `;
+  document.getElementById('refDetailModal').classList.add('open');
+}
+
+function closeRefDetail() {
+  document.getElementById('refDetailModal').classList.remove('open');
 }
 
 function exportRefCSV() {
   if (!references.length) { showToast('내보낼 레퍼런스가 없어요'); return; }
 
-  const headers = ['기록일자','글','첫 문장','조회수','좋아요','댓글','리포스트','키워드','URL'];
+  const headers = ['기록일자','글','첫 문장','조회수','좋아요','댓글','리포스트','공유','키워드','포인트','URL'];
   const escape = v => `"${String(v||'').replace(/"/g,'""').replace(/\n/g,' ')}"`;
 
   const rows = references.map(r => [
-    r.date, r.content, r.firstSentence, r.views, r.likes, r.comments, r.reposts, r.keyword, r.link
+    r.date, r.content, r.firstSentence, r.views, r.likes, r.comments, r.reposts, r.shares, r.keyword, r.point, r.link
   ].map(escape).join(','));
 
   const csv = '\uFEFF' + [headers.map(escape).join(','), ...rows].join('\n');
@@ -1468,7 +1903,40 @@ function exportRefCSV() {
   a.download = `ozkiz-references-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('✓ CSV 다운로드 완료');
+
+  // 마지막 백업일 기록
+  const now = new Date().toISOString();
+  localStorage.setItem('oz_lastBackup', now);
+  updateBackupStatus();
+
+  showToast('✓ CSV 백업 완료! 안전한 곳에 보관해주세요');
+}
+
+// 마지막 백업일 표시 + 경고
+function updateBackupStatus() {
+  const lastBackup = localStorage.getItem('oz_lastBackup');
+  const dateEl = document.getElementById('lastBackupDate');
+  const warnEl = document.getElementById('backupWarning');
+  if (!dateEl) return;
+
+  if (!lastBackup) {
+    dateEl.textContent = '없음';
+    warnEl.textContent = references.length ? '→ 지금 백업하세요!' : '';
+    return;
+  }
+
+  const last = new Date(lastBackup);
+  const days = Math.floor((Date.now() - last.getTime()) / (1000*60*60*24));
+  const dateStr = last.toLocaleDateString('ko-KR');
+  dateEl.textContent = `${dateStr} (${days}일 전)`;
+
+  if (days >= 30) {
+    warnEl.textContent = '→ 30일 이상 백업 안 됨! 지금 백업하세요!';
+  } else if (days >= 14) {
+    warnEl.textContent = '→ 곧 한 달 됩니다. 백업해주세요!';
+  } else {
+    warnEl.textContent = '';
+  }
 }
 
 
