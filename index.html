@@ -355,7 +355,7 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);co
           <div class="stat-change" id="dash-follower-change">불러오는 중...</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">최근 7일 조회수</div>
+          <div class="stat-label">최근 7개 평균 조회수</div>
           <div class="stat-val" id="dash-views">—</div>
           <div class="stat-change" id="dash-views-change">불러오는 중...</div>
         </div>
@@ -812,7 +812,7 @@ let apiKey = localStorage.getItem('oz_key') || '';
 let history = JSON.parse(localStorage.getItem('oz_hist') || '[]');
 let generating = false;
 let uploadedFiles = [];
-let calYear = 2026, calMonth = 3;
+let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
 let sheetData = []; // 전역 시트 데이터 (전체)
 let topPostsData = []; // TOP3 렌더용 (필터된 데이터)
 let filterStart = '', filterEnd = ''; // 날짜 필터
@@ -997,9 +997,9 @@ function renderDashboard(data) {
 
   const hasViews = data.filter(r => toNum(r[COL.views]) > 0);
   const recent7  = hasViews.slice(-7);
-  const totalViews = recent7.reduce((s,r) => s + toNum(r[COL.views]), 0);
-  document.getElementById('dash-views').textContent = fmtNum(totalViews);
-  document.getElementById('dash-views-change').textContent = `최근 ${recent7.length}개 게시물 합산`;
+  const avgViews = recent7.length ? Math.round(recent7.reduce((s,r) => s + toNum(r[COL.views]), 0) / recent7.length) : 0;
+  document.getElementById('dash-views').textContent = fmtNum(avgViews);
+  document.getElementById('dash-views-change').textContent = `최근 ${recent7.length}개 게시물 평균`;
 
   const hasLikes = data.filter(r => toNum(r[COL.likes]) > 0);
   const avgLikes = hasLikes.length ? Math.round(hasLikes.reduce((s,r)=>s+toNum(r[COL.likes]),0)/hasLikes.length) : 0;
